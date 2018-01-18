@@ -275,7 +275,7 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m', u
     if(i == 1) logl[1] = E_next$logl
     logl[i+1] = E_next$logl# - err[i]
      #sum(mapply(function(e,f) OmicsPLS::mse(e, f), e=parms, f = parms_next))
-    if(i > 1 && (logl[i+1]-logl[i]) < tol) break
+    if(i > 1 && abs(logl[i+1]-logl[i]) < tol) break
     #if( (err[i]<-sum(mapply(mse, params, params_next))) < tol ) {params = params_next; break}
     params = params_next
   }
