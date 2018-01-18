@@ -6,9 +6,9 @@ library(OmicsPLS)
 #simu_test<-parSapply(cl, 1:4, function(niks){
 p = 7
 q = 6
-r = 2
-rx = 2
-ry = 2
+r = 1
+rx = 0
+ry = 0
 parms = generate_params(matrix(0,1,p),matrix(0,1,q),r,rx,ry, type = 'r')
 # parms$Wo = 0*parms$Wo
 # parms$Co = 0*parms$Co
@@ -41,3 +41,7 @@ list(Max = max_po2m - max_o2m, Negs = any(diff(fit$logl)<0))
 #})
 #print(rowMeans(simu_test))
 }
+
+outp <- parallelsugar::mclapply(mc.cores=4, 1:20, f)
+outp2 <- cbind(data.frame(DifComp=t(sapply(outp, function(e) e[[1]]))), data.frame(NegDif = sapply(outp, function(e) e[[2]])))
+outp2 %>% group_by(NegDif) %>% summarise(m1=mean(DifComp.2))
