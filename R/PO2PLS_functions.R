@@ -101,28 +101,41 @@ generate_data <- function(N, params){
 }
 
 #' @export
-Lemma <- function(X, SigmaZ, invS, Gamma){
-  Gamma <- Gamma %*% SigmaZ
-  VarZc <- SigmaZ - t(Gamma) %*% invS %*% Gamma
-  EZc <- X %*% invS %*% Gamma
+Lemma <- function(X, SigmaZ, Gamma, sig2E, sig2F, p, q, r, rx, ry){
+  GammaEF <- Gamma
+  GammaEF[1:p,c(1:r,2*r+1:rx)] <- 1/sig2E* GammaEF[1:p,c(1:r,2*r+1:rx)]
+  GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)] <- 1/sig2F* GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)]
+
+  #invSEF <- diag(1/diag(SigmaEF))
+  #invS <- invSEF - invSEF %*% Gamma %*% solve(solve(SigmaZ) + t(Gamma)%*%invSEF%*%Gamma) %*% t(Gamma) %*% invSEF
+
+  VarZc <- SigmaZ - t(Gamma %*% SigmaZ) %*% GammaEF %*% SigmaZ +
+    t(Gamma %*% SigmaZ) %*% GammaEF %*% solve(solve(SigmaZ) + t(Gamma)%*%GammaEF) %*% t(Gamma) %*% GammaEF %*% SigmaZ
+
+  EZc <- X %*% GammaEF %*% SigmaZ - X %*% GammaEF %*% solve(solve(SigmaZ) + t(Gamma)%*%GammaEF) %*% t(Gamma) %*% GammaEF %*% SigmaZ
+  #solve(t(0))
   return(list(EZc = EZc, VarZc = VarZc))
 }
 
+
+
 #' @export
 E_step <- function(X, Y, params, use_lemma = FALSE){
+  ## retrieve parameters
   W = params$W
   C = params$C
   Wo = params$Wo
   Co = params$Co
   B = params$B
   SigT = params$SigT
-  SigTo = (ssq(Wo)>0)*params$SigTo + 0.0001*(ssq(Wo)==0)
-  SigUo = (ssq(Co)>0)*params$SigUo + 0.0001*(ssq(Co)==0)
+  SigTo = (ssq(Wo)>0)*params$SigTo + 1e-6*(ssq(Wo)==0)
+  SigUo = (ssq(Co)>0)*params$SigUo + 1e-6*(ssq(Co)==0)
   SigH = params$SigH
   sig2E = params$sig2E
   sig2F = params$sig2F
   SigU = SigT%*%B^2 + SigH
 
+  ## define dimensions
   N = nrow(X)
   p = nrow(W)
   q = nrow(C)
@@ -130,52 +143,88 @@ E_step <- function(X, Y, params, use_lemma = FALSE){
   rx = ncol(Wo)
   ry = ncol(Co)
 
+  ## concatenate data
   dataXY <- cbind(X,Y)
 
+  ## Gamma is the generalized loading matrix, with PO2PLS structure
   Gamma = rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry)),
                 cbind(matrix(0,q,r), C, matrix(0,q,rx), Co))
-  SigmaEF = diag(rep(c(sig2E,sig2F),c(p,q)))
+  ## Gamma multiplied by inverse SigmaEF
+  GammaEF <- Gamma
+  GammaEF[1:p,c(1:r,2*r+1:rx)] <- 1/sig2E* GammaEF[1:p,c(1:r,2*r+1:rx)]
+  GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)] <- 1/sig2F* GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)]
+  ## diagonal cov matrix of (E,F), hopefully NOT NEEDED
+  # SigmaEF = diag(rep(c(sig2E,sig2F),c(p,q)))
+  ## ALMOST diagonal cov matrix of (T,U,To,Uo)
   SigmaZ = blockm(
     blockm(
       blockm(SigT, SigT%*%B, SigU),
       matrix(0,2*r,rx), SigTo),
     matrix(0,2*r+rx,ry), SigUo)
 
-  SigmaXY = Gamma %*% SigmaZ %*% t(Gamma) + SigmaEF
-  invS <- solve(SigmaXY)
-  if(use_lemma) tmp <- Lemma(cbind(X,Y), SigmaZ, invS, Gamma)
-  invEF_Gamma <- rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry))/sig2E,
-                       cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/sig2F)
-  inv2EF_Gamma <- rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry))/(sig2E^2),
-                        cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/(sig2F^2))
+  ## Calculate conditional expectations with efficient lemma
+  # print(all.equal(invS,invS_old))
+  tmp <- Lemma(dataXY, SigmaZ, Gamma, sig2E, sig2F,p,q,r,rx,ry)
+  # print(all.equal(Lemma(cbind(X,Y), SigmaZ, invS, Gamma, sig2E, sig2F,p,q,r,rx,ry), Lemma_old(cbind(X,Y), SigmaZ, invS, Gamma)))
+
+  ## Define Szz as expected crossprod of Z
+  VarZc = tmp$VarZc
+  EZc = tmp$EZc
+  Szz = VarZc + crossprod(EZc)/N
+
+  ## For compatibility
+  # invEF_Gamma <- rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry))/sig2E,
+  #                      cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/sig2F)
+  # inv2EF_Gamma <- rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry))/(sig2E^2),
+  #                       cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/(sig2F^2))
+  # invZtilde <- solve(solve(SigmaZ) +
+  #                      t(Gamma) %*% rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry))/sig2E,
+  #                                         cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/sig2F))
+  #
+  # invS_Gamma <- invEF_Gamma - invEF_Gamma %*% invZtilde %*% crossprod(invEF_Gamma,Gamma)
+
+  ## inverse in middle term in lemma
   invZtilde <- solve(solve(SigmaZ) +
                        t(Gamma) %*% rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry))/sig2E,
                                           cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/sig2F))
 
-  invS_Gamma <- invEF_Gamma - invEF_Gamma %*% invZtilde %*% crossprod(invEF_Gamma,Gamma)
+  ## Calculate cond mean of E,F
+  # invS_covEF <- diag(1,p+q) - invEF_Gamma %*% invZtilde %*% t(Gamma)
+  # covEF = rbind(diag(sig2E,p), diag(0,q,p))
+  # mu_EF_old = dataXY - dataXY %*% invEF_Gamma %*% invZtilde %*% t(Gamma)
+  mu_EF = dataXY - dataXY %*% GammaEF %*% solve(solve(SigmaZ) + t(Gamma)%*%GammaEF) %*% t(Gamma)
 
-  VarZc <- SigmaZ - t(Gamma %*% SigmaZ) %*% invS_Gamma %*% SigmaZ
-  EZc <- dataXY %*% invS_Gamma %*% SigmaZ
-  if(use_lemma) VarZc = tmp$VarZc
-  if(use_lemma) EZc = tmp$EZc
-  Szz = VarZc + crossprod(EZc)/N
+  ## Calculate immediately expected crossprod of E,F
+  # Ceeff_old = SigmaEF - t(SigmaEF) %*% invS_covEF + crossprod(mu_EF) / N
+  # Ceeff = Gamma %*% solve(solve(SigmaZ) + t(Gamma)%*%invSEF%*%Gamma) %*% t(Gamma) +
+  #   crossprod(mu_EF) / N
+  # print(all.equal(mu_EF_old, mu_EF))
+  # print(all.equal(Ceeff_old, Ceeff))
 
-  #invS_covEF <- diag(1,p+q) - invEF_Gamma %*% invZtilde %*% t(Gamma)
-  #covEF = rbind(diag(sig2E,p), diag(0,q,p))
-  mu_EF = dataXY - dataXY %*% invEF_Gamma %*% invZtilde %*% t(Gamma)
-  #Ceeff = SigmaEF - t(SigmaEF) %*% invS_covEF + crossprod(mu_EF) / N
-
-  #Cee <- sum(diag(Ceeff[1:p,1:p]))/p
-  #Cff <- sum(diag(Ceeff[-(1:p),-(1:p)]))/q
-
+  ## Take trace of the matrix
+  # Cee_old <- sum(diag(Ceeff_old[1:p,1:p]))/p
   Cee <- sum(diag(
     crossprod(rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry)),
                     cbind(matrix(0,q,r), 0*C, matrix(0,q,rx), 0*Co)))%*%invZtilde
   ))/p + OmicsPLS::ssq(mu_EF[,1:p])/N/p
+  # Cff_old <- sum(diag(Ceeff_old[-(1:p),-(1:p)]))/q
   Cff <- sum(diag(
     crossprod(rbind(cbind(0*W, matrix(0,p,r), 0*Wo, matrix(0,p,ry)),
                     cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)))%*%invZtilde
   ))/q + OmicsPLS::ssq(mu_EF[,-(1:p)])/N/q
+  # cat('Cee\n'); print(all.equal(Cee_old,Cee));
+  # print(all.equal(Cff_old,Cff))
+
+  # Cee <- sum(diag(
+  #   crossprod(rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry)),
+  #                   cbind(matrix(0,q,r), 0*C, matrix(0,q,rx), 0*Co)))%*%invZtilde
+  # ))/p + OmicsPLS::ssq(mu_EF[,1:p])/N/p
+  # Cff <- sum(diag(
+  #   crossprod(rbind(cbind(0*W, matrix(0,p,r), 0*Wo, matrix(0,p,ry)),
+  #                   cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)))%*%invZtilde
+  # ))/q + OmicsPLS::ssq(mu_EF[,-(1:p)])/N/q
+
+
   #covE = rbind(diag(sig2E,p), diag(0,q,p))
   #mu_E = cbind(X,Y) %*% invS %*% covE
   #Cee = sum(diag(diag(sig2E,p) - t(covE) %*% invS %*% covE + crossprod(mu_E) / N))/p
@@ -185,21 +234,37 @@ E_step <- function(X, Y, params, use_lemma = FALSE){
   #Cff = sum(diag(diag(sig2F,q) - t(covF) %*% invS %*% covF + crossprod(mu_F) / N))/q
 
   covH = rbind(0*W, C%*%SigH)
-  invS_covH <- (covH/sig2F - invEF_Gamma %*% invZtilde %*% crossprod(invEF_Gamma,covH))
-  mu_H = dataXY %*% invS_covH
-  Chh = SigH - t(covH) %*% invS_covH + crossprod(mu_H) / N
+  covHEF = rbind(0*W, C%*%SigH/sig2F)
+  # invS_covH <- (covH/sig2F - invEF_Gamma %*% invZtilde %*% crossprod(invEF_Gamma,covH))
+  # mu_H_old = dataXY %*% invS_covH
+  # mu_H_old <- dataXY %*% invS %*% covH
+  mu_H <- dataXY %*% covHEF - dataXY %*% GammaEF %*% solve(solve(SigmaZ) + t(Gamma)%*%GammaEF) %*% t(Gamma) %*% covHEF
+  # Chh_old = SigH - t(covH) %*% invS_covH + crossprod(mu_H) / N
+  # Chh_old <- SigH - t(covH) %*% invS %*% covH + crossprod(mu_H) / N
+  Chh <- SigH - t(covH) %*% covHEF +
+    t(covH) %*% GammaEF %*% solve(solve(SigmaZ) + t(Gamma)%*%GammaEF) %*% t(Gamma) %*% covHEF +
+    crossprod(mu_H) / N
+  # print(all.equal(mu_H_old, mu_H))
+  # print(all.equal(Chh_old, Chh))
 
-  # covH = rbind(0*W, C%*%SigH)
-  # mu_H = cbind(X,Y) %*% invS %*% covH
-  # Chh = SigH - t(covH) %*% invS %*% covH + crossprod(mu_H) / N
+  ## diagonal cov matrix of (X,Y), hopefully NOT NEEDED
+  # SigmaXY = Gamma %*% SigmaZ %*% t(Gamma) + SigmaEF
+  ## INVERSE diagonal cov matrix of (E,F), hopefully NOT NEEDED
+  # invSEF <- diag(1/diag(SigmaEF))
+  ## INVERSE diagonal cov matrix of (X,Y), hopefully NOT NEEDED
+  # invS <- invSEF - invSEF %*% Gamma %*% solve(solve(SigmaZ) + t(Gamma)%*%invSEF%*%Gamma) %*% t(Gamma) %*% invSEF
 
-  #solve(t(0))
-  loglik = N*(p+q)*log(2*pi) +
-   N * c(determinant(SigmaXY)$mod) +
-   sum(diag((crossprod(cbind(X,Y)))%*%invS))
+  ## log of det SigmaXY
+  logdet <- log(det(diag(2*r+rx+ry) + t(Gamma)%*%GammaEF%*%SigmaZ))+log(sig2E^p)+log(sig2F^q)
+  ## representation of SigmaXY %*% invS
+  XYinvS <- ssq(cbind(X/sqrt(sig2E), Y/sqrt(sig2F))) - sum(diag(crossprod(dataXY %*% GammaEF) %*% invZtilde))
+  ## Log likelihood
+  loglik = N*(p+q)*log(2*pi) + N * logdet + XYinvS
   loglik = - loglik/2
+  # print(all.equal(XYinvS, sum(diag(dataXY %*% invS %*% t(dataXY)))))
+  # solve(t(0))
 
-  comp_log <- -sum(diag(crossprod(cbind(X,Y)) - 2*crossprod(cbind(X,Y),EZc)%*%t(Gamma) + Gamma %*% Szz %*% t(Gamma)))
+  # comp_log <- -sum(diag(crossprod(cbind(X,Y)) - 2*crossprod(cbind(X,Y),EZc)%*%t(Gamma) + Gamma %*% Szz %*% t(Gamma)))
   list(
     mu_T = matrix(EZc[,1:r],N,r),
     mu_U = matrix(EZc[,r+1:r],N,r),
@@ -215,8 +280,8 @@ E_step <- function(X, Y, params, use_lemma = FALSE){
     See = Cee,
     Sff = Cff,
     Shh = Chh,
-    loglik = loglik,
-    comp_log = comp_log
+    loglik = loglik# ,
+    # comp_log = comp_log
   )
 }
 
@@ -294,22 +359,23 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m', u
   #list(params = params_next, err = err[1:i])
 }
 
-Lemma_old <- function(X, SigmaZ, SigmaE, Gamma){
+Lemma_old <- function(X, SigmaZ, invS, Gamma){
   Gamma <- Gamma %*% SigmaZ
-  VarZc <- solve(solve(SigmaZ) + t(Gamma) %*% solve(SigmaE) %*% Gamma)
-  EZc <- X %*% solve(SigmaE) %*% Gamma %*% VarZc
+  VarZc <- SigmaZ - t(Gamma) %*% invS %*% Gamma
+  EZc <- X %*% invS %*% Gamma
   return(list(EZc = EZc, VarZc = VarZc))
 }
 
-E_stepold <- function(X, Y, params){
+
+E_step_old <- function(X, Y, params, use_lemma = FALSE){
   W = params$W
   C = params$C
   Wo = params$Wo
   Co = params$Co
   B = params$B
   SigT = params$SigT
-  SigTo = params$SigTo
-  SigUo = params$SigUo
+  SigTo = (ssq(Wo)>0)*params$SigTo + 1e-6*(ssq(Wo)==0)
+  SigUo = (ssq(Co)>0)*params$SigUo + 1e-6*(ssq(Co)==0)
   SigH = params$SigH
   sig2E = params$sig2E
   sig2F = params$sig2F
@@ -322,26 +388,76 @@ E_stepold <- function(X, Y, params){
   rx = ncol(Wo)
   ry = ncol(Co)
 
+  dataXY <- cbind(X,Y)
+
   Gamma = rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry)),
                 cbind(matrix(0,q,r), C, matrix(0,q,rx), Co))
-  Gamma_noise = rbind(1/sig2E*cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry)),
-                      1/sig2F*cbind(matrix(0,q,r), C, matrix(0,q,rx), Co))
-  VarZ = blockm(
+  SigmaEF = diag(rep(c(sig2E,sig2F),c(p,q)))
+  SigmaZ = blockm(
     blockm(
       blockm(SigT, SigT%*%B, SigU),
       matrix(0,2*r,rx), SigTo),
     matrix(0,2*r+rx,ry), SigUo)
-  SigmaXY = Gamma %*% VarZ %*% t(Gamma) + diag(rep(c(sig2E,sig2F),c(p,q)))
-  VarZc = solve(solve(VarZ) + t(Gamma) %*% Gamma_noise)
-  #VarZc = VarZ - VarZ %*% t(Gamma) %*% solve(SigmaXY) %*% Gamma %*% VarZ
-  EZc = cbind(1/sig2E*X,1/sig2F*Y) %*% Gamma %*% VarZc
-  #EZc = cbind(X,Y) %*% solve(SigmaXY) %*% Gamma %*% VarZ
+
+  SigmaXY = Gamma %*% SigmaZ %*% t(Gamma) + SigmaEF
+  invS <- solve(SigmaXY)
+  if(use_lemma) tmp <- Lemma(cbind(X,Y), SigmaZ, invS, Gamma)
+  invEF_Gamma <- rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry))/sig2E,
+                       cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/sig2F)
+  inv2EF_Gamma <- rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry))/(sig2E^2),
+                        cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/(sig2F^2))
+  invZtilde <- solve(solve(SigmaZ) +
+                       t(Gamma) %*% rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry))/sig2E,
+                                          cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/sig2F))
+
+  invS_Gamma <- invEF_Gamma - invEF_Gamma %*% invZtilde %*% crossprod(invEF_Gamma,Gamma)
+
+  VarZc <- SigmaZ - t(Gamma %*% SigmaZ) %*% invS_Gamma %*% SigmaZ
+  EZc <- dataXY %*% invS_Gamma %*% SigmaZ
+  if(use_lemma) VarZc = tmp$VarZc
+  if(use_lemma) EZc = tmp$EZc
   Szz = VarZc + crossprod(EZc)/N
 
+  #invS_covEF <- diag(1,p+q) - invEF_Gamma %*% invZtilde %*% t(Gamma)
+  #covEF = rbind(diag(sig2E,p), diag(0,q,p))
+  mu_EF = dataXY - dataXY %*% invEF_Gamma %*% invZtilde %*% t(Gamma)
+  #Ceeff = SigmaEF - t(SigmaEF) %*% invS_covEF + crossprod(mu_EF) / N
+
+  #Cee <- sum(diag(Ceeff[1:p,1:p]))/p
+  #Cff <- sum(diag(Ceeff[-(1:p),-(1:p)]))/q
+
+  Cee <- sum(diag(
+    crossprod(rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry)),
+                    cbind(matrix(0,q,r), 0*C, matrix(0,q,rx), 0*Co)))%*%invZtilde
+  ))/p + OmicsPLS::ssq(mu_EF[,1:p])/N/p
+  Cff <- sum(diag(
+    crossprod(rbind(cbind(0*W, matrix(0,p,r), 0*Wo, matrix(0,p,ry)),
+                    cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)))%*%invZtilde
+  ))/q + OmicsPLS::ssq(mu_EF[,-(1:p)])/N/q
+  #covE = rbind(diag(sig2E,p), diag(0,q,p))
+  #mu_E = cbind(X,Y) %*% invS %*% covE
+  #Cee = sum(diag(diag(sig2E,p) - t(covE) %*% invS %*% covE + crossprod(mu_E) / N))/p
+
+  #covF = rbind(diag(0,p,q), diag(sig2F,q))
+  #mu_F = cbind(X,Y) %*% invS %*% covF
+  #Cff = sum(diag(diag(sig2F,q) - t(covF) %*% invS %*% covF + crossprod(mu_F) / N))/q
+
+  covH = rbind(0*W, C%*%SigH)
+  invS_covH <- (covH/sig2F - invEF_Gamma %*% invZtilde %*% crossprod(invEF_Gamma,covH))
+  mu_H = dataXY %*% invS_covH
+  Chh = SigH - t(covH) %*% invS_covH + crossprod(mu_H) / N
+
+  # covH = rbind(0*W, C%*%SigH)
+  # mu_H = cbind(X,Y) %*% invS %*% covH
+  # Chh = SigH - t(covH) %*% invS %*% covH + crossprod(mu_H) / N
+
+  #solve(t(0))
   loglik = N*(p+q)*log(2*pi) +
-    c(determinant(SigmaXY)$mod) +
-    sum(diag(crossprod(cbind(X,Y))%*%SigmaXY))
+    N * c(determinant(SigmaXY)$mod) +
+    sum(diag((crossprod(cbind(X,Y)))%*%invS))
   loglik = - loglik/2
+
+  comp_log <- -sum(diag(crossprod(cbind(X,Y)) - 2*crossprod(cbind(X,Y),EZc)%*%t(Gamma) + Gamma %*% Szz %*% t(Gamma)))
   list(
     mu_T = matrix(EZc[,1:r],N,r),
     mu_U = matrix(EZc[,r+1:r],N,r),
@@ -354,6 +470,10 @@ E_stepold <- function(X, Y, params){
     Sut = matrix(Szz[r+1:r, 1:r],r,r),
     Stto = matrix(Szz[1:r, 2*r+1:rx],r,rx),
     Suuo = matrix(Szz[r+1:r, 2*r+rx+1:ry],r,ry),
-    loglik = loglik
+    See = Cee,
+    Sff = Cff,
+    Shh = Chh,
+    loglik = loglik,
+    comp_log = comp_log
   )
 }
