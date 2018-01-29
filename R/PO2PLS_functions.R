@@ -253,9 +253,9 @@ E_step <- function(X, Y, params, use_lemma = FALSE){
   # invSEF <- diag(1/diag(SigmaEF))
   ## INVERSE diagonal cov matrix of (X,Y), hopefully NOT NEEDED
   # invS <- invSEF - invSEF %*% Gamma %*% solve(solve(SigmaZ) + t(Gamma)%*%invSEF%*%Gamma) %*% t(Gamma) %*% invSEF
-
+  # if(use_lemma == TRUE){solve(t(0))}
   ## log of det SigmaXY
-  logdet <- log(det(diag(2*r+rx+ry) + t(Gamma)%*%GammaEF%*%SigmaZ))+log(sig2E^p)+log(sig2F^q)
+  logdet <- log(det(diag(2*r+rx+ry) + t(Gamma)%*%GammaEF%*%SigmaZ))+p*log(sig2E)+q*log(sig2F)
   ## representation of SigmaXY %*% invS
   XYinvS <- ssq(cbind(X/sqrt(sig2E), Y/sqrt(sig2F))) - sum(diag(crossprod(dataXY %*% GammaEF) %*% invZtilde))
   ## Log likelihood
@@ -330,7 +330,7 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m', u
   params$Co <- params$Co
   err = logl = 0*0:steps
   for(i in 1:steps){
-    E_next = E_step(X, Y, params, use_lemma = use_lemma)
+    E_next = E_step(X, Y, params, use_lemma = (i==2))
     params_next = M_step(E_next, params, X, Y)
     #parms_next[-1] = params[-1]
     # if(i == 1) err[1] = mse(params_next[[1]],parms[[1]])
