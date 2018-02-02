@@ -299,7 +299,7 @@ M_step <- function(E_fit, params, X, Y){
     #Q_old <- E_step(X, Y, params_old)$com
     params$W = OmicsPLS::orth(t(X) %*% mu_T - params$Wo%*%t(Stto),type = 'SVD')
     #L_W <- E_step(X,Y,params)$log; cat("Only W ", L_W, "  --  "); cat(E_step(X,Y,params)$comp-Q_old, "  -*-  ")
-    params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X) %*% mu_To - params_old$W%*%Stto,type = 'SVD'))
+    params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X) %*% mu_To - params$W%*%Stto,type = 'SVD'))
     #L_Wo <- E_step(X,Y,params)$log; cat("Only Wo ", L_Wo, "  --  "); cat(E_step(X,Y,within(params,{W=params_old$W}))$comp-Q_old)
     #params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X) %*% mu_To - params$W%*%Stto,type = 'SVD'))
     #L_W_Wo <- E_step(X,Y,params)$log; cat("Wo after W ", L_W_Wo, "  --  "); cat(E_step(X,Y,params)$comp)
@@ -329,6 +329,8 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m', u
   params$Wo <- params$Wo
   params$Co <- params$Co
   err = logl = 0*0:steps
+  tic <- proc.time()
+  print(paste('started',date()))
   for(i in 1:steps){
     E_next = E_step(X, Y, params, use_lemma = (i==2))
     params_next = M_step(E_next, params, X, Y)
@@ -341,6 +343,9 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m', u
     logl[i+1] = E_next$logl# - err[i]
      #sum(mapply(function(e,f) OmicsPLS::mse(e, f), e=parms, f = parms_next))
     if(i > 1 && abs(logl[i+1]-logl[i]) < tol) break
+    if(i %in% c(1e2, 1e3, 5e3, 1e4, 4e4)) {
+      print(data.frame(row.names = 1, steps = i, time = unname(proc.time()-tic)[3], loglik = logl[i+1]-logl[i]))
+    }
     #if( (err[i]<-sum(mapply(mse, params, params_next))) < tol ) {params = params_next; break}
     params = params_next
   }
