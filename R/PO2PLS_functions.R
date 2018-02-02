@@ -349,6 +349,20 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m', u
     #if( (err[i]<-sum(mapply(mse, params, params_next))) < tol ) {params = params_next; break}
     params = params_next
   }
+  on.exit({
+    signB <- sign(diag(params$B))
+    params$B <- params$B %*% diag(signB,r)
+    params$C <- params$C %*% diag(signB,r)
+    ordSB <- order(diag(params$SigT %*% params$B), decreasing = TRUE)
+    params$W <- params$W[,ordSB]
+    params$C <- params$C[,ordSB]
+    #message("Nr steps was ", i, "; error was ", signif(err[i+1],4))
+    message("Nr steps was ", i)
+    message("Negative increments: ", any(diff(logl[-1]) < -1e-10),
+            "; Last increment: ", signif(logl[i+1]-logl[i],4))
+    message("Log-likelihood: ", logl[i+1])
+    return(list(params = params_next, err = err[1:i], logl = logl[0:i+1][-1]))
+  })
   signB <- sign(diag(params$B))
   params$B <- params$B %*% diag(signB,r)
   params$C <- params$C %*% diag(signB,r)
