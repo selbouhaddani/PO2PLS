@@ -1,10 +1,10 @@
 f <- function(none){
 #set.seed(13254)
-#library(OmicsPLS)
+library(OmicsPLS)
 #library(parallel)
 
 #simu_test<-parSapply(cl, 1:4, function(niks){
-p = 300
+p = 30
 q = 20
 r = 5
 rx = 5
