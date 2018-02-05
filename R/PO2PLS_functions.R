@@ -324,7 +324,8 @@ M_step <- function(E_fit, params, X, Y){
 
 #' @export
 PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m', use_lemma = FALSE){
-  params <- generate_params(X, Y, r, rx, ry, type = init_param)
+  if(inherits(init_param,"PO2PLS")) params <- init_param$par
+  else params <- generate_params(X, Y, r, rx, ry, type = init_param)
   #params <- parms2
   params$Wo <- params$Wo
   params$Co <- params$Co
@@ -355,7 +356,9 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m', u
   message("Negative increments: ", any(diff(logl[-1]) < -1e-10),
           "; Last increment: ", signif(logl[i+1]-logl[i],4))
   message("Log-likelihood: ", logl[i+1])
-  list(params = params_next, err = err[1:i], logl = logl[0:i+1][-1])
+  outputt <- list(params = params_next, err = err[1:i], logl = logl[0:i+1][-1])
+  class(outputt) <- "PO2PLS"
+  return(outputt)
   #list(params = params_next, err = err[1:i])
 }
 
