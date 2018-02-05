@@ -1,14 +1,14 @@
 f <- function(none){
 #set.seed(13254)
-#library(OmicsPLS)
+library(OmicsPLS)
 #library(parallel)
 
 #simu_test<-parSapply(cl, 1:4, function(niks){
-p = 7
-q = 6
-r = 2
-rx = 3
-ry = 1
+p = 30
+q = 20
+r = 5
+rx = 5
+ry = 0
 parms = generate_params(matrix(0,1,p),matrix(0,1,q),r,rx,ry, type = 'r')
 # parms$Wo = 0*parms$Wo
 # parms$Co = 0*parms$Co
@@ -20,8 +20,8 @@ Y = scale(Dat[,-(1:p)], scale = F)
 #parms
 
 #fitppls <- (PPLS::PPLS_simult(X,Y,r,1e4,1e-6))
-fit_o2m = o2m(X,Y,r,rx,ry,stripped=T)
-fit <- PO2PLS(X, Y, r, rx, ry, 5e4, tol = 1e-6, 'o2m')
+system.time(print(pryr::mem_change(fit_o2m <- o2m(X,Y,r,rx,ry,stripped=T))))
+system.time(print(pryr::mem_change(fit <- PO2PLS(X, Y, r, rx, ry, 5e3, tol = 1e-6, 'o2m'))))
 #refit_i <- 0
 #while(min(diff(fit$logl)) < -1e-5){
 #  refit_i <- refit_i + 1

@@ -101,19 +101,20 @@ generate_data <- function(N, params){
 }
 
 #' @export
-Lemma <- function(X, SigmaZ, Gamma, sig2E, sig2F, p, q, r, rx, ry){
+Lemma <- function(X, SigmaZ, invZtilde, Gamma, sig2E, sig2F, p, q, r, rx, ry){
   GammaEF <- Gamma
   GammaEF[1:p,c(1:r,2*r+1:rx)] <- 1/sig2E* GammaEF[1:p,c(1:r,2*r+1:rx)]
   GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)] <- 1/sig2F* GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)]
 
   #invSEF <- diag(1/diag(SigmaEF))
   #invS <- invSEF - invSEF %*% Gamma %*% solve(solve(SigmaZ) + t(Gamma)%*%invSEF%*%Gamma) %*% t(Gamma) %*% invSEF
+  GGef <- t(Gamma) %*% GammaEF
+  VarZc <- SigmaZ - (t(Gamma %*% SigmaZ) %*% GammaEF) %*% SigmaZ +
+    (t(Gamma %*% SigmaZ) %*% GammaEF) %*% solve(solve(SigmaZ) + GGef) %*% GGef %*% SigmaZ
 
-  VarZc <- SigmaZ - t(Gamma %*% SigmaZ) %*% GammaEF %*% SigmaZ +
-    t(Gamma %*% SigmaZ) %*% GammaEF %*% solve(solve(SigmaZ) + t(Gamma)%*%GammaEF) %*% t(Gamma) %*% GammaEF %*% SigmaZ
-
-  EZc <- X %*% GammaEF %*% SigmaZ - X %*% GammaEF %*% solve(solve(SigmaZ) + t(Gamma)%*%GammaEF) %*% t(Gamma) %*% GammaEF %*% SigmaZ
-  #solve(t(0))
+  EZc <- X %*% (GammaEF %*% SigmaZ)
+  EZc <- EZc - X %*% ((GammaEF %*% invZtilde)  %*% (GGef %*% SigmaZ))
+  # solve(t(0))
   return(list(EZc = EZc, VarZc = VarZc))
 }
 
@@ -153,6 +154,8 @@ E_step <- function(X, Y, params, use_lemma = FALSE){
   GammaEF <- Gamma
   GammaEF[1:p,c(1:r,2*r+1:rx)] <- 1/sig2E* GammaEF[1:p,c(1:r,2*r+1:rx)]
   GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)] <- 1/sig2F* GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)]
+  GGef <- t(Gamma) %*% GammaEF
+
   ## diagonal cov matrix of (E,F), hopefully NOT NEEDED
   # SigmaEF = diag(rep(c(sig2E,sig2F),c(p,q)))
   ## ALMOST diagonal cov matrix of (T,U,To,Uo)
@@ -162,9 +165,12 @@ E_step <- function(X, Y, params, use_lemma = FALSE){
       matrix(0,2*r,rx), SigTo),
     matrix(0,2*r+rx,ry), SigUo)
 
+  ## inverse middle term lemma
+  invZtilde <- solve(solve(SigmaZ) + GGef)
+
   ## Calculate conditional expectations with efficient lemma
   # print(all.equal(invS,invS_old))
-  tmp <- Lemma(dataXY, SigmaZ, Gamma, sig2E, sig2F,p,q,r,rx,ry)
+  tmp <- Lemma(dataXY, SigmaZ, invZtilde, Gamma, sig2E, sig2F,p,q,r,rx,ry)
   # print(all.equal(Lemma(cbind(X,Y), SigmaZ, invS, Gamma, sig2E, sig2F,p,q,r,rx,ry), Lemma_old(cbind(X,Y), SigmaZ, invS, Gamma)))
 
   ## Define Szz as expected crossprod of Z
@@ -184,15 +190,16 @@ E_step <- function(X, Y, params, use_lemma = FALSE){
   # invS_Gamma <- invEF_Gamma - invEF_Gamma %*% invZtilde %*% crossprod(invEF_Gamma,Gamma)
 
   ## inverse in middle term in lemma
-  invZtilde <- solve(solve(SigmaZ) +
-                       t(Gamma) %*% rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry))/sig2E,
-                                          cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/sig2F))
+  # invZtilde <- solve(solve(SigmaZ) +
+  #                      t(Gamma) %*% rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry))/sig2E,
+  #                                         cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/sig2F))
 
   ## Calculate cond mean of E,F
   # invS_covEF <- diag(1,p+q) - invEF_Gamma %*% invZtilde %*% t(Gamma)
   # covEF = rbind(diag(sig2E,p), diag(0,q,p))
   # mu_EF_old = dataXY - dataXY %*% invEF_Gamma %*% invZtilde %*% t(Gamma)
-  mu_EF = dataXY - dataXY %*% GammaEF %*% solve(solve(SigmaZ) + t(Gamma)%*%GammaEF) %*% t(Gamma)
+  mu_EF = dataXY
+  mu_EF <- mu_EF - (dataXY %*% (GammaEF %*% invZtilde)) %*% t(Gamma)
 
   ## Calculate immediately expected crossprod of E,F
   # Ceeff_old = SigmaEF - t(SigmaEF) %*% invS_covEF + crossprod(mu_EF) / N
@@ -238,12 +245,14 @@ E_step <- function(X, Y, params, use_lemma = FALSE){
   # invS_covH <- (covH/sig2F - invEF_Gamma %*% invZtilde %*% crossprod(invEF_Gamma,covH))
   # mu_H_old = dataXY %*% invS_covH
   # mu_H_old <- dataXY %*% invS %*% covH
-  mu_H <- dataXY %*% covHEF - dataXY %*% GammaEF %*% solve(solve(SigmaZ) + t(Gamma)%*%GammaEF) %*% t(Gamma) %*% covHEF
+  mu_H <- dataXY %*% covHEF
+  mu_H <- mu_H - (dataXY %*% (GammaEF %*% invZtilde)) %*% (t(Gamma) %*% covHEF)
   # Chh_old = SigH - t(covH) %*% invS_covH + crossprod(mu_H) / N
   # Chh_old <- SigH - t(covH) %*% invS %*% covH + crossprod(mu_H) / N
-  Chh <- SigH - t(covH) %*% covHEF +
-    t(covH) %*% GammaEF %*% solve(solve(SigmaZ) + t(Gamma)%*%GammaEF) %*% t(Gamma) %*% covHEF +
-    crossprod(mu_H) / N
+  Chh <- SigH
+  Chh <- Chh - t(covH) %*% covHEF
+  Chh <- Chh + (t(covH) %*% GammaEF %*% invZtilde) %*% (t(Gamma) %*% covHEF)
+  Chh <- Chh + crossprod(mu_H) / N
   # print(all.equal(mu_H_old, mu_H))
   # print(all.equal(Chh_old, Chh))
 
@@ -255,9 +264,10 @@ E_step <- function(X, Y, params, use_lemma = FALSE){
   # invS <- invSEF - invSEF %*% Gamma %*% solve(solve(SigmaZ) + t(Gamma)%*%invSEF%*%Gamma) %*% t(Gamma) %*% invSEF
   # if(use_lemma == TRUE){solve(t(0))}
   ## log of det SigmaXY
-  logdet <- log(det(diag(2*r+rx+ry) + t(Gamma)%*%GammaEF%*%SigmaZ))+p*log(sig2E)+q*log(sig2F)
+  logdet <- log(det(diag(2*r+rx+ry) + GGef%*%SigmaZ))+p*log(sig2E)+q*log(sig2F)
   ## representation of SigmaXY %*% invS
-  XYinvS <- ssq(cbind(X/sqrt(sig2E), Y/sqrt(sig2F))) - sum(diag(crossprod(dataXY %*% GammaEF) %*% invZtilde))
+  XYinvS <- ssq(cbind(X/sqrt(sig2E), Y/sqrt(sig2F)))
+  XYinvS <- XYinvS - sum(diag(crossprod(dataXY %*% GammaEF) %*% invZtilde))
   ## Log likelihood
   loglik = N*(p+q)*log(2*pi) + N * logdet + XYinvS
   loglik = - loglik/2
@@ -299,7 +309,7 @@ M_step <- function(E_fit, params, X, Y){
     #Q_old <- E_step(X, Y, params_old)$com
     params$W = OmicsPLS::orth(t(X) %*% mu_T - params$Wo%*%t(Stto),type = 'SVD')
     #L_W <- E_step(X,Y,params)$log; cat("Only W ", L_W, "  --  "); cat(E_step(X,Y,params)$comp-Q_old, "  -*-  ")
-    params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X) %*% mu_To - params_old$W%*%Stto,type = 'SVD'))
+    params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X) %*% mu_To - params$W%*%Stto,type = 'SVD'))
     #L_Wo <- E_step(X,Y,params)$log; cat("Only Wo ", L_Wo, "  --  "); cat(E_step(X,Y,within(params,{W=params_old$W}))$comp-Q_old)
     #params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X) %*% mu_To - params$W%*%Stto,type = 'SVD'))
     #L_W_Wo <- E_step(X,Y,params)$log; cat("Wo after W ", L_W_Wo, "  --  "); cat(E_step(X,Y,params)$comp)
@@ -330,6 +340,8 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m', u
   params$Wo <- params$Wo
   params$Co <- params$Co
   err = logl = 0*0:steps
+  tic <- proc.time()
+  print(paste('started',date()))
   for(i in 1:steps){
     E_next = E_step(X, Y, params, use_lemma = (i==2))
     params_next = M_step(E_next, params, X, Y)
@@ -342,9 +354,13 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m', u
     logl[i+1] = E_next$logl# - err[i]
      #sum(mapply(function(e,f) OmicsPLS::mse(e, f), e=parms, f = parms_next))
     if(i > 1 && abs(logl[i+1]-logl[i]) < tol) break
+    if(i %in% c(1e2, 1e3, 5e3, 1e4, 4e4)) {
+      print(data.frame(row.names = 1, steps = i, time = unname(proc.time()-tic)[3], loglik = logl[i+1]-logl[i]))
+    }
     #if( (err[i]<-sum(mapply(mse, params, params_next))) < tol ) {params = params_next; break}
     params = params_next
   }
+<<<<<<< HEAD
   signB <- sign(diag(params$B))
   params$B <- params$B %*% diag(signB,r)
   params$C <- params$C %*% diag(signB,r)
@@ -479,4 +495,20 @@ E_step_old <- function(X, Y, params, use_lemma = FALSE){
     loglik = loglik,
     comp_log = comp_log
   )
+=======
+  on.exit({
+    signB <- sign(diag(params$B))
+    params$B <- params$B %*% diag(signB,r)
+    params$C <- params$C %*% diag(signB,r)
+    ordSB <- order(diag(params$SigT %*% params$B), decreasing = TRUE)
+    params$W <- params$W[,ordSB]
+    params$C <- params$C[,ordSB]
+    #message("Nr steps was ", i, "; error was ", signif(err[i+1],4))
+    message("Nr steps was ", i)
+    message("Negative increments: ", any(diff(logl[-1]) < -1e-10),
+            "; Last increment: ", signif(logl[i+1]-logl[i],4))
+    message("Log-likelihood: ", logl[i+1])
+    return(list(params = params_next, err = err[1:i], logl = logl[0:i+1][-1]))
+  })
+>>>>>>> c1b470e3f5f6ff493e4d866f547dc83cf8bc2360
 }
