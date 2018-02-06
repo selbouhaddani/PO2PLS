@@ -334,8 +334,8 @@ M_step <- function(E_fit, params, X, Y){
 
 #' @export
 PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m', use_lemma = FALSE){
-  if(inherits(init_param,"PO2PLS")) params <- init_param$par
-  else params <- generate_params(X, Y, r, rx, ry, type = init_param)
+  if(inherits(init_param,"PO2PLS")) {cat('using old fit \n'); params <- init_param$par}
+  else {params <- generate_params(X, Y, r, rx, ry, type = init_param)}
   #params <- parms2
   params$Wo <- params$Wo
   params$Co <- params$Co
