@@ -28,10 +28,10 @@ blockm<-function(A,B,C)
 }
 
 #' @export
-generate_params <- function(X, Y, r, rx, ry, type=c('o2m','random')){
-  p = ncol(X)
-  q = ncol(Y)
+generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('o2m','random')){
   type=match.arg(type)
+  p = ifelse(is.matrix(X) | type != "random", ncol(X), X)
+  q = ifelse(is.matrix(Y) | type != "random", ncol(Y), Y)
   if(type=="o2m"){
     return(with(OmicsPLS::o2m(X, Y, r, rx, ry, stripped=TRUE),{
       list(
@@ -44,12 +44,12 @@ generate_params <- function(X, Y, r, rx, ry, type=c('o2m','random')){
         SigTo = sign(rx)*cov(T_Yosc.)*diag(1,max(1,rx)),
         SigUo = sign(ry)*cov(U_Xosc.)*diag(1,max(1,ry)),
         SigH = cov(H_UT)*diag(1,r),
-        sig2E = 0.05,
-        sig2F = 0.05
+        sig2E = ssq(E)/prod(dim(E)),
+        sig2F = ssq(Ff)/prod(dim(Ff))
       )}))
   }
   if(type=="random"){
-    list(
+    outp <- list(
       W = OmicsPLS::orth(matrix(runif(p*r), p, r)),
       Wo = suppressWarnings(sign(rx)*OmicsPLS::orth(matrix(runif(p*max(1,rx)), p, max(1,rx)))),
       C = OmicsPLS::orth(matrix(runif(q*r), q, r)),
@@ -57,11 +57,14 @@ generate_params <- function(X, Y, r, rx, ry, type=c('o2m','random')){
       B = diag(sort(runif(r,1,4),decreasing = TRUE),r),
       SigT = diag(sort(runif(r,1,3),decreasing = TRUE),r),
       SigTo = sign(rx)*diag(sort(runif(max(1,rx),1,3),decreasing = TRUE),max(1,rx)),
-      SigUo = sign(ry)*diag(sort(runif(max(1,ry),1,3),decreasing = TRUE),max(1,ry)),
-      SigH = diag(0.1,r), #cov(H_UT)*diag(1,r),
-      sig2E = 0.05,
-      sig2F = 0.05
+      SigUo = sign(ry)*diag(sort(runif(max(1,ry),1,3),decreasing = TRUE),max(1,ry))
     )
+    outp$SigH = diag(alpha/(1-alpha)*(mean(diag(outp$SigT%*%outp$B))),r) #cov(H_UT)*diag(1,r),
+    with(outp, {
+      c(outp,
+        sig2E = alpha/(1-alpha)*(mean(diag(SigT)) + mean(diag(SigTo)))/p,
+        sig2F = alpha/(1-alpha)*(mean(diag(SigT%*%B^2 + SigH)) + mean(diag(SigUo)))/q)
+    })
   }
 }
 

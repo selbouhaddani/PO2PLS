@@ -24,7 +24,7 @@ Cmax <- cmax(fit$par$C, parms$C) - cmax(fit_o2m$C., parms$C)
 Womax <- cmax(fit$par$Wo, parms$Wo) - cmax(orth(fit_o2m$P_Y), parms$Wo)
 Comax <- cmax(fit$par$Co, parms$Co) - cmax(orth(fit_o2m$P_X), parms$Co)
 
-list(W = Wmax, C = Cmax, Wo=Womax, Co=Comax, Negs = any(diff(fit$logl)<0), time = c(o2m = time_o2m, po2m <- time_po2m))
+list(W = Wmax, C = Cmax, Wo=Womax, Co=Comax, Negs = any(diff(fit$logl)<0), time = c(o2m = time_o2m[3], po2m <- time_po2m[3]))
 
 }
 
