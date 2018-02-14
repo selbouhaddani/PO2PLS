@@ -44,8 +44,8 @@ generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('o2m','random')
         SigTo = sign(rx)*cov(T_Yosc.)*diag(1,max(1,rx)),
         SigUo = sign(ry)*cov(U_Xosc.)*diag(1,max(1,ry)),
         SigH = cov(H_UT)*diag(1,r),
-        sig2E = ssq(E)/prod(dim(E)),
-        sig2F = ssq(Ff)/prod(dim(Ff))
+        sig2E = (ssq(X)-ssq(Tt)-ssq(T_Yosc.))/prod(dim(X)) + 0.01,
+        sig2F = (ssq(Y)-ssq(U)-ssq(U_Xosc.))/prod(dim(Y)) + 0.01
       )}))
   }
   if(type=="random"){
@@ -124,7 +124,7 @@ Lemma <- function(X, SigmaZ, invZtilde, Gamma, sig2E, sig2F, p, q, r, rx, ry){
 
 
 #' @export
-E_step <- function(X, Y, params, use_lemma = FALSE){
+E_step <- function(X, Y, params){
   ## retrieve parameters
   W = params$W
   C = params$C
@@ -299,26 +299,23 @@ E_step <- function(X, Y, params, use_lemma = FALSE){
 }
 
 #' @export
-M_step <- function(E_fit, params, X, Y){
+M_step <- function(E_fit, params, X, Y, orth_type = c("SVD","QR"), multiCM = FALSE, verbose = FALSE){
   orth_x = OmicsPLS::ssq(params$Wo) > 0
   orth_y = OmicsPLS::ssq(params$Co) > 0
   #print(E_fit[-(1:4)])
+  orth_type = match.arg(orth_type)
+  # params_old <- params
   with(E_fit,{
-    N = nrow(X)
+    tmp <- E_fit$loglik
+
+    # N = nrow(X)
     r = ncol(mu_T)
     rx = ncol(mu_To)
     ry = ncol(mu_Uo)
-    params_old <- params
+    # params_old <- params
     #Q_old <- E_step(X, Y, params_old)$com
-    params$W = OmicsPLS::orth(t(X) %*% mu_T - params$Wo%*%t(Stto),type = 'SVD')
-    #L_W <- E_step(X,Y,params)$log; cat("Only W ", L_W, "  --  "); cat(E_step(X,Y,params)$comp-Q_old, "  -*-  ")
-    params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X) %*% mu_To - params$W%*%Stto,type = 'SVD'))
-    #L_Wo <- E_step(X,Y,params)$log; cat("Only Wo ", L_Wo, "  --  "); cat(E_step(X,Y,within(params,{W=params_old$W}))$comp-Q_old)
-    #params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X) %*% mu_To - params$W%*%Stto,type = 'SVD'))
-    #L_W_Wo <- E_step(X,Y,params)$log; cat("Wo after W ", L_W_Wo, "  --  "); cat(E_step(X,Y,params)$comp)
-    #cat("\n")
-    params$C = OmicsPLS::orth(t(Y) %*% mu_U - params$Co%*%t(Suuo),type = 'SVD')
-    params$Co = suppressWarnings(orth_y*OmicsPLS::orth(t(Y) %*% mu_Uo - params$C%*%Suuo,type = 'SVD'))
+    params$W = OmicsPLS::orth(t(X) %*% mu_T - params$Wo%*%t(Stto),type = orth_type)
+    params$C = OmicsPLS::orth(t(Y) %*% mu_U - params$Co%*%t(Suuo),type = orth_type)
     params$B = Sut %*% solve(Stt) * diag(1,r)
     params$SigT = Stt*diag(1,r)
     params$SigTo = Stoto*diag(1,rx)
@@ -331,37 +328,98 @@ M_step <- function(E_fit, params, X, Y){
     #  2*crossprod(Y,mu_Uo)%*%t(params_old$Co) + 2*params_old$C%*%Suuo%*%t(params_old$Co) +
     #  params_old$C%*%Suu%*%t(params_old$C) + params_old$Co%*%Suouo%*%t(params_old$Co)))/N)
     # #    solve(t(0))
+    tmp2 <- E_step(X, Y, params)$loglik
+
+    params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X) %*% mu_To - params$W%*%Stto,type = orth_type))
+    params$Co = suppressWarnings(orth_y*OmicsPLS::orth(t(Y) %*% mu_Uo - params$C%*%Suuo,type = orth_type))
+
+
+    tmp3 <- E_step(X, Y, params)$loglik
+
+    if(multiCM & any(c(tmp2 <= tmp, tmp3 <= tmp2))){
+      if(verbose){
+        cat("\n Old likelihood: \n")
+        cat(tmp)
+
+        cat(" \n Intermediate likelihood: \n")
+        cat(tmp2)
+
+        cat("\n New likelihood: \n")
+        cat(tmp3)
+
+        cat("\n \n Conclusion: \n Failed to converge in step ")
+        cat(which(c(tmp2 < tmp, tmp3 < tmp2)))
+
+
+        #if(tmp2 <= tmp) params[c("W","C")] <- params_old[c("W","C")]
+        #if(tmp3 <= tmp2) params[c("Wo","Co")] <- params_old[c("Wo","Co")]
+
+        cat("\n --------------------- \n ")
+      }
+      # solve(t(0))
+      for(i in 1:10){
+        params$W = OmicsPLS::orth(t(X) %*% mu_T - params$Wo%*%t(Stto),type = 'SVD')
+        params$C = OmicsPLS::orth(t(Y) %*% mu_U - params$Co%*%t(Suuo),type = 'SVD')
+        params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X) %*% mu_To - params$W%*%Stto,type = 'SVD'))
+        params$Co = suppressWarnings(orth_y*OmicsPLS::orth(t(Y) %*% mu_Uo - params$C%*%Suuo,type = 'SVD'))
+      }
+    }
+
     params
   })
 }
 
 #' @export
-PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m', use_lemma = FALSE){
+jitter_params <- function(params, factor = 1, amount = NULL){
+  suppressWarnings(params[1:4] <- lapply(params[1:4], function(e) sign(ssq(e))*orth(jitter(e,amount = 1))))
+  params
+}
+
+#' @export
+PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m',
+                   orth_type = "SVD", multiCM = FALSE, random_restart = FALSE, verbose = FALSE){
   if(inherits(init_param,"PO2PLS")) {cat('using old fit \n'); params <- init_param$par}
   else {params <- generate_params(X, Y, r, rx, ry, type = init_param)}
   #params <- parms2
-  params$Wo <- params$Wo
-  params$Co <- params$Co
+  #params$Wo <- params$Wo
+  #params$Co <- params$Co
   err = logl = 0*0:steps
   tic <- proc.time()
   print(paste('started',date()))
-  for(i in 1:steps){
-    E_next = E_step(X, Y, params, use_lemma = (i==2))
-    params_next = M_step(E_next, params, X, Y)
-    #parms_next[-1] = params[-1]
-    # if(i == 1) err[1] = mse(params_next[[1]],parms[[1]])
-    # err[i+1] = mse(
-    #   params_next[[1]],
-    #   parms[[1]]%*%sign(abs(crossprod(params_next[[1]],parms[[1]]))>0.5))
-    if(i == 1) logl[1] = E_next$logl
-    logl[i+1] = E_next$logl# - err[i]
-     #sum(mapply(function(e,f) OmicsPLS::mse(e, f), e=parms, f = parms_next))
-    if(i > 1 && abs(logl[i+1]-logl[i]) < tol) break
-    if(i %in% c(1e2, 1e3, 5e3, 1e4, 4e4)) {
-      print(data.frame(row.names = 1, steps = i, time = unname(proc.time()-tic)[3], loglik = logl[i+1]-logl[i]))
+
+  i_rr <- 0
+  while(random_restart){
+
+    if(i_rr > 0) {
+      message("Log-likelihood: ", logl[i+1])
+      message(paste("random restart no",i_rr))
     }
-    #if( (err[i]<-sum(mapply(mse, params, params_next))) < tol ) {params = params_next; break}
-    params = params_next
+
+    for(i in 1:steps){
+      E_next = E_step(X, Y, params)
+      params_next = M_step(E_next, params, X, Y, orth_type = orth_type, multiCM = multiCM, verbose = verbose)
+      #parms_next[-1] = params[-1]
+      # if(i == 1) err[1] = mse(params_next[[1]],parms[[1]])
+      # err[i+1] = mse(
+      #   params_next[[1]],
+      #   parms[[1]]%*%sign(abs(crossprod(params_next[[1]],parms[[1]]))>0.5))
+      if(i == 1) logl[1] = E_next$logl
+      logl[i+1] = E_next$logl# - err[i]
+       #sum(mapply(function(e,f) OmicsPLS::mse(e, f), e=parms, f = parms_next))
+      if(i > 1 && (logl[i+1]-logl[i]) < tol) break
+      if(i %in% c(1e2, 1e3, 5e3, 1e4, 4e4)) {
+        print(data.frame(row.names = 1, steps = i, time = unname(proc.time()-tic)[3], loglik = logl[i+1]-logl[i]))
+      }
+      #if( (err[i]<-sum(mapply(mse, params, params_next))) < tol ) {params = params_next; break}
+      params = params_next
+    }
+    if(!any(diff(logl[-1]) < -1e-10)) {
+      random_restart = FALSE
+      break
+    }
+    i_rr <- i_rr + 1
+    params <- jitter_params(params)
+    params[-(1:4)] <- generate_params(X, Y, r, rx, ry, type = 'r')[-(1:4)]
   }
 
   signB <- sign(diag(params$B))
