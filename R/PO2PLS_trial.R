@@ -2,11 +2,11 @@ f <- function(none){
 #set.seed(13254)
 library(OmicsPLS)
 
-p = 30
-q = 20
-r = 5
-rx = 5
-ry = 0
+p = 6
+q = 5
+r = 3
+rx = 2
+ry = 1
 parms = generate_params(p,q,r,rx,ry, type = 'r')
 Dat = generate_data(1e3, parms)
 X = scale(Dat[,1:p], scale = F)
