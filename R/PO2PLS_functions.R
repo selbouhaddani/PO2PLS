@@ -69,7 +69,7 @@ generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('o2m','random')
 }
 
 #' @export
-generate_data <- function(N, params){
+generate_data <- function(N, params, distr = rnorm){
   W = params$W
   C = params$C
   Wo = params$Wo
@@ -97,10 +97,20 @@ generate_data <- function(N, params){
       matrix(0,2*r,rx), SigTo),
     matrix(0,2*r+rx,ry), SigUo)
 
-  MASS::mvrnorm(n = N,
-                mu = rep(0,p+q),
-                Sigma = Gamma %*% VarZ %*% t(Gamma) +
-                  diag(rep(c(sig2E,sig2F),c(p,q))))
+  # MASS::mvrnorm(n = N,
+  #               mu = rep(0,p+q),
+  #               Sigma = Gamma %*% VarZ %*% t(Gamma) +
+  #                 diag(rep(c(sig2E,sig2F),c(p,q))))
+
+  Z <- matrix(distr(N*(2*r+rx+ry)), N)
+  Z <- Z %*% chol(VarZ)
+  Z[,2*r+1:rx] <- sign(ssq(Wo))*Z[,2*r+1:rx]
+  Z[,2*r+rx+1:ry] <- sign(ssq(Co))*Z[,2*r+rx+1:ry]
+
+  EF <- cbind(matrix(distr(N*p), N)*sqrt(sig2E), matrix(distr(N*q), N)*sqrt(sig2F))
+
+  Z %*% t(Gamma) + EF
+
 }
 
 #' @export
@@ -429,8 +439,8 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m',
   #params <- parms2
   #params$Wo <- params$Wo
   #params$Co <- params$Co
-  diags <- matrix(NA,0,7)
-  err = logl = 0*0:steps
+  #diags <- matrix(NA,0,7)
+  logl = 0*0:steps
   tic <- proc.time()
   print(paste('started',date()))
 
@@ -459,7 +469,7 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m',
       #params_next$W <- params_next$W[,ordSB]
       #params_next$C <- params_next$C[,ordSB]
 
-      diags <- rbind(diags,diagnostics.PO2PLS(params_next, parms))
+      # diags <- rbind(diags,diagnostics.PO2PLS(params_next, parms))
 
       if(i == 1) logl[1] = E_next$logl
       logl[i+1] = E_next$logl# - err[i]
@@ -491,7 +501,7 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m',
   message("Negative increments: ", any(diff(logl[-1]) < -1e-10),
           "; Last increment: ", signif(logl[i+1]-logl[i],4))
   message("Log-likelihood: ", logl[i+1])
-  outputt <- list(params = params_next, err = err[1:i], logl = logl[0:i+1][-1], diags = diags[1:i,])
+  outputt <- list(params = params_next, logl = logl[0:i+1][-1])
   class(outputt) <- "PO2PLS"
   return(outputt)
   #list(params = params_next, err = err[1:i])
@@ -501,7 +511,7 @@ plot_accur.PO2PLS <- function(fit){
   library(ggplot2)
   library(gridExtra)
   fit_o2m <- o2m(X,Y,ncol(parms$W),ncol(parms$Wo),ncol(parms$Co))
-  g1 <- ggplot(reshape2::melt(fit$diags[,1:4]), aes(x=Var1,y=value)) + geom_line(aes(col=Var2,linetype=(grepl("o",Var2))))
+  g1 <- ggplot(reshape2::melt(fit$diags[,1:4]), aes(x=Var1,y=value)) + geom_line(aes(col=Var2,linetype=grepl('o',Var2)))
   g2 <- ggplot(reshape2::melt(fit$diags[,5:6]), aes(x=Var1,y=value)) + geom_line(aes(col=Var2))
   g3 <- ggplot(reshape2::melt(fit$diags[,7]), aes(x=1:nrow(fit$diags),y=value)) + geom_line()
   g4 <- qplot(x=1:length(fit$logl), y=fit$logl, geom='line')
@@ -517,4 +527,11 @@ plot_accur.PO2PLS <- function(fit){
   ))
   print("### MAX CROSSPROD JOINT AND ORTHOGONAL SPACE")
   print(c(W=max(abs(crossprod(parms$W,parms$Wo))), C=max(abs(crossprod(parms$C,parms$Co)))))
+}
+
+cov.PO2PLS <- function(fit){
+  with(fit$par,
+       blockm(W%*%SigT%*%t(W)+Wo%*%SigTo%*%t(Wo) ,
+              W%*%SigT%*%B%*%t(C) ,
+              C%*%(SigT%*%B^2+SigH)%*%t(C)+Co%*%SigUo%*%t(Co)))
 }
