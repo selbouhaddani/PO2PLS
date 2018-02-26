@@ -102,12 +102,12 @@ generate_data <- function(N, params, distr = rnorm){
   #               Sigma = Gamma %*% VarZ %*% t(Gamma) +
   #                 diag(rep(c(sig2E,sig2F),c(p,q))))
 
-  Z <- matrix(distr(N*(2*r+rx+ry)), N)
+  Z <- scale(matrix(distr(N*(2*r+rx+ry)), N))
   Z <- Z %*% chol(VarZ)
   Z[,2*r+1:rx] <- sign(ssq(Wo))*Z[,2*r+1:rx]
   Z[,2*r+rx+1:ry] <- sign(ssq(Co))*Z[,2*r+rx+1:ry]
 
-  EF <- cbind(matrix(distr(N*p), N)*sqrt(sig2E), matrix(distr(N*q), N)*sqrt(sig2F))
+  EF <- cbind(scale(matrix(distr(N*p), N))*sqrt(sig2E), scale(matrix(distr(N*q), N))*sqrt(sig2F))
 
   Z %*% t(Gamma) + EF
 

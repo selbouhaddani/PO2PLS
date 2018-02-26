@@ -1,16 +1,20 @@
 f <- function(niets){
 #set.seed(13254)
 library(OmicsPLS)
-
-N = 500
+distr_list <- list(norm=rnorm,
+                   t=function(n) rt(n, df=2),
+                   pois=function(n) rpois(n, lambda=1),
+                   binom=function(n) rbinom(n, size = 2, prob = .25))
+N = 50
 p = 20
 q = 20
 r = 3
 rx = 2
 ry = 1
-alpha = 0.5
-distr = function(n) rnorm(n)
-load('parms_N500_p20_a50_s87548L.RData') #generate_params(p,q,r,rx,ry, type = 'r',alpha=alpha)
+noise_alpha = 0.5
+distr_name <- names(distr_list)[2]
+distr = distr_list[[distr_name]]
+load(paste0('parms_N500_p',p,'_a',noise_alpha*100,'_s',ifelse(noise_alpha == 0.5, 87548, 29867),'L.RData')) #generate_params(p,q,r,rx,ry, type = 'r',alpha=noise_alpha)
 Dat = generate_data(N, parms, distr)
 X = scale(Dat[,1:p], scale = F)
 Y = scale(Dat[,-(1:p)], scale = F)
@@ -39,6 +43,6 @@ library(parallel)
 library(tidyverse)
 library(OmicsPLS)
 source('R/PO2PLS_functions.R')
-system.time(outp <- parallelsugar::mclapply(mc.cores=4, 1:30, f))
+system.time(outp <- parallelsugar::mclapply(mc.cores=4, 1:20, f))
 outp2 <- cbind(data.frame(DifComp=t(sapply(outp, function(e) e$W))), data.frame(NegDif = sapply(outp, function(e) e$Negs)))
 outp2 %>% group_by(NegDif) %>% summarise(m1=mean(DifComp.2))
