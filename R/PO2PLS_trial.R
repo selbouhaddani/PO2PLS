@@ -11,7 +11,7 @@ q = 20
 r = 3
 rx = 2
 ry = 1
-noise_alpha = 0.5
+noise_alpha = 0.1
 distr_name <- names(distr_list)[2]
 distr = distr_list[[distr_name]]
 load(paste0('parms_N500_p',p,'_a',noise_alpha*100,'_s',ifelse(noise_alpha == 0.5, 87548, 29867),'L.RData')) #generate_params(p,q,r,rx,ry, type = 'r',alpha=noise_alpha)
@@ -39,10 +39,10 @@ list(fits = list(PO2PLS = fit, O2PLS = fit_o2m),
 
 }
 
-library(parallel)
-library(tidyverse)
-library(OmicsPLS)
-source('R/PO2PLS_functions.R')
-system.time(outp <- parallelsugar::mclapply(mc.cores=4, 1:20, f))
-outp2 <- cbind(data.frame(DifComp=t(sapply(outp, function(e) e$W))), data.frame(NegDif = sapply(outp, function(e) e$Negs)))
-outp2 %>% group_by(NegDif) %>% summarise(m1=mean(DifComp.2))
+# library(parallel)
+# library(tidyverse)
+# library(OmicsPLS)
+# source('R/PO2PLS_functions.R')
+# system.time(outp <- parallelsugar::mclapply(mc.cores=4, 1:10, f))
+# outp2 <- cbind(data.frame(DifComp=t(sapply(outp, function(e) e$W))), data.frame(NegDif = sapply(outp, function(e) e$Negs)))
+# outp2 %>% group_by(NegDif) %>% summarise(m1=median(DifComp.1), s1 = mad(DifComp.1))

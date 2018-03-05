@@ -1,7 +1,7 @@
 Package: PO2PLS
 Type: Package
 Title: Probabilistic Two-Way Orthogonal Partial Least Squares
-Version: 0.0.2
+Version: 0.1
 Date: 2017-06-12
 Author: Said el Bouhaddani
 Maintainer: Said el Bouhaddani <s.el_bouhaddani@lumc.nl>
