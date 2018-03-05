@@ -287,7 +287,11 @@ E_step <- function(X, Y, params){
   # print(all.equal(XYinvS, sum(diag(dataXY %*% invS %*% t(dataXY)))))
   # solve(t(0))
 
-  comp_log <- - N/2*(p+q)*log(2*pi) - N/2*(p*log(sig2E)+q*log(sig2F)) - N/2*ssq(cbind(X/sqrt(sig2E), Y/sqrt(sig2F))) + N*sum(diag(GammaEF%*%crossprod(EZc,dataXY))) - N/2*sum(diag(GGef%*%Szz))
+  # comp_log <- - N/2*(p+q)*log(2*pi)
+  # comp_log <- comp_log - N/2*(p*log(sig2E)+q*log(sig2F))
+  # comp_log <- comp_log - N/2*ssq(cbind(X/sqrt(sig2E), Y/sqrt(sig2F)))
+  # comp_log <- comp_log + N*sum(diag(crossprod(EZc,dataXY)%*%GammaEF))
+  # comp_log <- comp_log - N/2*sum(diag(GGef%*%Szz))
   list(
     EZc = EZc,
     Szz = Szz,
@@ -306,7 +310,7 @@ E_step <- function(X, Y, params){
     Sff = Cff,
     Shh = Chh,
     loglik = loglik,
-    comp_log = comp_log
+    comp_log = 0#comp_log
   )
 }
 
@@ -340,14 +344,14 @@ M_step <- function(E_fit, params, X, Y, orth_type = c("SVD","QR"),
     #  2*crossprod(Y,mu_Uo)%*%t(params_old$Co) + 2*params_old$C%*%Suuo%*%t(params_old$Co) +
     #  params_old$C%*%Suu%*%t(params_old$C) + params_old$Co%*%Suouo%*%t(params_old$Co)))/N)
     # #    solve(t(0))
-    tmp2 <- E_step(X, Y, params)$loglik
+    if(multiCM) tmp2 <- E_step(X, Y, params)$loglik
 
     params$W = OmicsPLS::orth(t(X) %*% mu_T - params$Wo%*%t(Stto),type = orth_type)
     params$C = OmicsPLS::orth(t(Y) %*% mu_U - params$Co%*%t(Suuo),type = orth_type)
     # params$W = OmicsPLS::orth(t(X - mu_To %*% t(params$Wo)) %*% mu_T, type = orth_type)
     # params$C = OmicsPLS::orth(t(Y - mu_Uo %*% t(params$Co)) %*% mu_U, type = orth_type)
 
-    tmp3 <- E_step(X, Y, params)$loglik
+    if(multiCM) tmp3 <- E_step(X, Y, params)$loglik
 
     params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X) %*% mu_To - params$W%*%Stto,type = orth_type))
     params$Co = suppressWarnings(orth_y*OmicsPLS::orth(t(Y) %*% mu_Uo - params$C%*%Suuo,type = orth_type))
@@ -369,11 +373,11 @@ M_step <- function(E_fit, params, X, Y, orth_type = c("SVD","QR"),
     # params$C <- orth(Gamma[-(1:p),r+1:r])
     # params$Co <- orth(Gamma[-(1:p),2*r+rx+1:ry])
 
-    tmp4 <- E_step(X, Y, params)$loglik
+    if(multiCM) tmp4 <- E_step(X, Y, params)$loglik
 
     if(debug) solve(t(0))
 
-    if(multiCM & any(c(tmp4 < tmp, tmp4 < tmp))){
+    if(multiCM && any(c(tmp4 < tmp, tmp4 < tmp))){
       if(verbose){
         cat("\n Old likelihood after var's: \n")
         cat(tmp2)

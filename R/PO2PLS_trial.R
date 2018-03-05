@@ -5,16 +5,17 @@ distr_list <- list(norm=rnorm,
                    t=function(n) rt(n, df=2),
                    pois=function(n) rpois(n, lambda=1),
                    binom=function(n) rbinom(n, size = 2, prob = .25))
-N = 50
-p = 20
-q = 20
-r = 3
-rx = 2
+N = 10
+p = 1e4
+q = 5
+r = 1
+rx = 1
 ry = 1
 noise_alpha = 0.1
-distr_name <- names(distr_list)[2]
+distr_name <- names(distr_list)[1]
 distr = distr_list[[distr_name]]
-load(paste0('parms_N500_p',p,'_a',noise_alpha*100,'_s',ifelse(noise_alpha == 0.5, 87548, 29867),'L.RData')) #generate_params(p,q,r,rx,ry, type = 'r',alpha=noise_alpha)
+#load(paste0('parms_N500_p',p,'_a',noise_alpha*100,'_s',ifelse(noise_alpha == 0.5, 87548, 29867),'L.RData'))
+parms <- generate_params(p,q,r,rx,ry, type = 'r',alpha=noise_alpha)
 Dat = generate_data(N, parms, distr)
 X = scale(Dat[,1:p], scale = F)
 Y = scale(Dat[,-(1:p)], scale = F)
