@@ -123,7 +123,7 @@ Lemma <- function(X, SigmaZ, invZtilde, Gamma, sig2E, sig2F, p, q, r, rx, ry){
   #invS <- invSEF - invSEF %*% Gamma %*% solve(solve(SigmaZ) + t(Gamma)%*%invSEF%*%Gamma) %*% t(Gamma) %*% invSEF
   GGef <- t(Gamma) %*% GammaEF
   VarZc <- SigmaZ - (t(Gamma %*% SigmaZ) %*% GammaEF) %*% SigmaZ +
-    (t(Gamma %*% SigmaZ) %*% GammaEF) %*% solve(solve(SigmaZ) + GGef) %*% GGef %*% SigmaZ
+    (t(Gamma %*% SigmaZ) %*% GammaEF) %*% invZtilde %*% GGef %*% SigmaZ
 
   EZc <- X %*% (GammaEF %*% SigmaZ)
   EZc <- EZc - X %*% ((GammaEF %*% invZtilde)  %*% (GGef %*% SigmaZ))
@@ -538,4 +538,51 @@ cov.PO2PLS <- function(fit){
        blockm(W%*%SigT%*%t(W)+Wo%*%SigTo%*%t(Wo) ,
               W%*%SigT%*%B%*%t(C) ,
               C%*%(SigT%*%B^2+SigH)%*%t(C)+Co%*%SigUo%*%t(Co)))
+}
+
+variances.PO2PLS <- function(fit, data){
+  N = nrow(data)
+  p = nrow(fit$par$W)
+  q = nrow(fit$par$C)
+  r = ncol(fit$par$W)
+  rx= ncol(fit$par$Wo)
+  ry= ncol(fit$par$Co)
+  SigU = with(fit$par, SigT%*%B^2 + SigH)
+
+  dataEF <- cbind(data[,1:p]/fit$par$sig2E, data[,-(1:p)]/fit$par$sig2F)
+
+  Gamma = with(fit$par, {
+    rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry)),
+          cbind(matrix(0,q,r), C, matrix(0,q,rx), Co))
+    })
+  SigmaZ = with(fit$par,{
+    blockm(
+      blockm(
+        blockm(SigT, SigT%*%B, SigU),
+        matrix(0,2*r,rx), SigTo),
+      matrix(0,2*r+rx,ry), SigUo)
+  })
+  GammaEF <- Gamma
+  GammaEF[1:p,c(1:r,2*r+1:rx)] <- 1/fit$par$sig2E* GammaEF[1:p,c(1:r,2*r+1:rx)]
+  GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)] <- 1/fit$par$sig2F* GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)]
+  GGef <- t(Gamma) %*% GammaEF
+  invZtilde <- solve(solve(SigmaZ) + GGef)
+  VarZc <- SigmaZ - (t(Gamma %*% SigmaZ) %*% GammaEF) %*% SigmaZ +
+    (t(Gamma %*% SigmaZ) %*% GammaEF) %*% invZtilde %*% GGef %*% SigmaZ
+
+  EZc <- data %*% (GammaEF %*% SigmaZ)
+  EZc <- EZc - data %*% ((GammaEF %*% invZtilde)  %*% (GGef %*% SigmaZ))
+  Szz = VarZc + crossprod(EZc)/N
+  E3Zc <- EZc%*%crossprod(EZc) + 3*EZc%*%VarZc
+  E4Zc <- crossprod(EZc)^2 + 6*(crossprod(EZc))%*%VarZc + 3*crossprod(VarZc)
+
+  Iobs = lapply(1:ncol(Gamma), function(comp_k) {
+    Bobs <- diag(c(rep(1/fit$par$sig2E,p), rep(1/fit$par$sig2F,q))) * N*Szz[comp_k,comp_k]
+    SSt1 <- Szz[comp_k,comp_k]*crossprod(dataEF)
+    SSt2 <- crossprod(dataEF, E3Zc%*%t(GammaEF))
+    SSt3 <- GammaEF %*% E4Zc %*% t(GammaEF)
+    list(covar_mat = Bobs - SSt1 + SSt2 - SSt3, SEs = -diag(solve((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3)/N)))
+  })
+  Iobs
+
 }

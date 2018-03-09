@@ -5,11 +5,11 @@ distr_list <- list(norm=rnorm,
                    t=function(n) rt(n, df=2),
                    pois=function(n) rpois(n, lambda=1),
                    binom=function(n) rbinom(n, size = 2, prob = .25))
-N = 10
-p = 1e4
-q = 5
-r = 1
-rx = 1
+N = 100
+p = 11
+q = 10
+r = 3
+rx = 2
 ry = 1
 noise_alpha = 0.1
 distr_name <- names(distr_list)[1]
