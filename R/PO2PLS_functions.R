@@ -33,12 +33,12 @@ generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('o2m','random')
   p = ifelse(is.matrix(X) | type != "random", ncol(X), X)
   q = ifelse(is.matrix(Y) | type != "random", ncol(Y), Y)
   if(type=="o2m"){
-    return(with(OmicsPLS::o2m(X, Y, r, rx, ry, stripped=TRUE),{
+    return(with(o2m(X, Y, r, rx, ry, stripped=TRUE),{
       list(
         W = W.,
-        Wo = suppressWarnings(OmicsPLS::orth(P_Yosc.)),
+        Wo = suppressWarnings(orth(P_Yosc.)),
         C = C.,
-        Co = suppressWarnings(OmicsPLS::orth(P_Xosc.)),
+        Co = suppressWarnings(orth(P_Xosc.)),
         B = abs(cov(Tt,U)%*%solve(cov(Tt)))*diag(1,r),
         SigT = cov(Tt)*diag(1,r),
         SigTo = sign(rx)*cov(T_Yosc.)*diag(1,max(1,rx)),
@@ -50,10 +50,10 @@ generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('o2m','random')
   }
   if(type=="random"){
     outp <- list(
-      W = OmicsPLS::orth(matrix(rnorm(p*r), p, r)+1),
-      Wo = suppressWarnings(sign(rx)*OmicsPLS::orth(matrix(rnorm(p*max(1,rx)), p, max(1,rx))+seq(-p/2,p/2,length.out = p))),
-      C = OmicsPLS::orth(matrix(rnorm(q*r), q, r)+1),
-      Co = suppressWarnings(sign(ry)*OmicsPLS::orth(matrix(rnorm(q*max(1,rx)), q, max(1,ry))+seq(-q/2,q/2,length.out = q))),
+      W = orth(matrix(rnorm(p*r), p, r)+1),
+      Wo = suppressWarnings(sign(rx)*orth(matrix(rnorm(p*max(1,rx)), p, max(1,rx))+seq(-p/2,p/2,length.out = p))),
+      C = orth(matrix(rnorm(q*r), q, r)+1),
+      Co = suppressWarnings(sign(ry)*orth(matrix(rnorm(q*max(1,rx)), q, max(1,ry))+seq(-q/2,q/2,length.out = q))),
       B = diag(sort(runif(r,1,4),decreasing = TRUE),r),
       SigT = diag(sort(runif(r,1,3),decreasing = TRUE),r),
       SigTo = sign(rx)*diag(sort(runif(max(1,rx),1,3),decreasing = TRUE),max(1,rx)),
@@ -76,12 +76,12 @@ generate_data <- function(N, params, distr = rnorm){
   Co = params$Co
   B = params$B
   SigT = params$SigT
-  SigTo = params$SigTo
-  SigUo = params$SigUo
+  SigTo = params$SigTo + 1e-6*SigT[1]*(params$SigTo[1]==0)
   SigH = params$SigH
   sig2E = params$sig2E
   sig2F = params$sig2F
   SigU = SigT%*%B^2 + SigH
+  SigUo = params$SigUo + 1e-6*SigU[1]*(params$SigUo[1]==0)
 
   p = nrow(W)
   q = nrow(C)
@@ -226,23 +226,23 @@ E_step <- function(X, Y, params){
   Cee <- sum(diag(
     crossprod(rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry)),
                     cbind(matrix(0,q,r), 0*C, matrix(0,q,rx), 0*Co)))%*%invZtilde
-  ))/p + OmicsPLS::ssq(mu_EF[,1:p])/N/p
+  ))/p + ssq(mu_EF[,1:p])/N/p
   # Cff_old <- sum(diag(Ceeff_old[-(1:p),-(1:p)]))/q
   Cff <- sum(diag(
     crossprod(rbind(cbind(0*W, matrix(0,p,r), 0*Wo, matrix(0,p,ry)),
                     cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)))%*%invZtilde
-  ))/q + OmicsPLS::ssq(mu_EF[,-(1:p)])/N/q
+  ))/q + ssq(mu_EF[,-(1:p)])/N/q
   # cat('Cee\n'); print(all.equal(Cee_old,Cee));
   # print(all.equal(Cff_old,Cff))
 
   # Cee <- sum(diag(
   #   crossprod(rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry)),
   #                   cbind(matrix(0,q,r), 0*C, matrix(0,q,rx), 0*Co)))%*%invZtilde
-  # ))/p + OmicsPLS::ssq(mu_EF[,1:p])/N/p
+  # ))/p + ssq(mu_EF[,1:p])/N/p
   # Cff <- sum(diag(
   #   crossprod(rbind(cbind(0*W, matrix(0,p,r), 0*Wo, matrix(0,p,ry)),
   #                   cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)))%*%invZtilde
-  # ))/q + OmicsPLS::ssq(mu_EF[,-(1:p)])/N/q
+  # ))/q + ssq(mu_EF[,-(1:p)])/N/q
 
 
   #covE = rbind(diag(sig2E,p), diag(0,q,p))
@@ -276,7 +276,7 @@ E_step <- function(X, Y, params){
   ## INVERSE diagonal cov matrix of (X,Y), hopefully NOT NEEDED
   # invS <- invSEF - invSEF %*% Gamma %*% solve(solve(SigmaZ) + t(Gamma)%*%invSEF%*%Gamma) %*% t(Gamma) %*% invSEF
   # if(use_lemma == TRUE){solve(t(0))}
-  ## log of det SigmaXY
+  ## log of det SigmaXY, see matrix determinant lemma
   logdet <- log(det(diag(2*r+rx+ry) + GGef%*%SigmaZ))+p*log(sig2E)+q*log(sig2F)
   ## representation of SigmaXY %*% invS
   XYinvS <- ssq(cbind(X/sqrt(sig2E), Y/sqrt(sig2F)))
@@ -287,11 +287,12 @@ E_step <- function(X, Y, params){
   # print(all.equal(XYinvS, sum(diag(dataXY %*% invS %*% t(dataXY)))))
   # solve(t(0))
 
-  # comp_log <- - N/2*(p+q)*log(2*pi)
-  # comp_log <- comp_log - N/2*(p*log(sig2E)+q*log(sig2F))
-  # comp_log <- comp_log - N/2*ssq(cbind(X/sqrt(sig2E), Y/sqrt(sig2F)))
-  # comp_log <- comp_log + N*sum(diag(crossprod(EZc,dataXY)%*%GammaEF))
-  # comp_log <- comp_log - N/2*sum(diag(GGef%*%Szz))
+  comp_log <- - N/2*(p+q)*log(2*pi)
+  comp_log <- comp_log - N/2*(p*log(sig2E)+q*log(sig2F))
+  comp_log <- comp_log - N/2*ssq(cbind(X/sqrt(sig2E), Y/sqrt(sig2F)))
+  comp_log <- comp_log + N*sum(diag(crossprod(EZc,dataXY)%*%GammaEF))
+  comp_log <- comp_log - N/2*sum(diag(GGef%*%Szz))
+
   list(
     EZc = EZc,
     Szz = Szz,
@@ -310,7 +311,7 @@ E_step <- function(X, Y, params){
     Sff = Cff,
     Shh = Chh,
     loglik = loglik,
-    comp_log = 0#comp_log
+    comp_log = comp_log
   )
 }
 
@@ -318,8 +319,8 @@ E_step <- function(X, Y, params){
 M_step <- function(E_fit, params, X, Y, orth_type = c("SVD","QR"),
                    multiCM = FALSE, steps_multiCM = 10, verbose = FALSE,
                    debug = FALSE){
-  orth_x = OmicsPLS::ssq(params$Wo) > 0
-  orth_y = OmicsPLS::ssq(params$Co) > 0
+  orth_x = ssq(params$Wo) > 0
+  orth_y = ssq(params$Co) > 0
   #print(E_fit[-(1:4)])
   orth_type = match.arg(orth_type)
   # params_old <- params
@@ -346,17 +347,17 @@ M_step <- function(E_fit, params, X, Y, orth_type = c("SVD","QR"),
     # #    solve(t(0))
     if(multiCM) tmp2 <- E_step(X, Y, params)$loglik
 
-    params$W = OmicsPLS::orth(t(X) %*% mu_T - params$Wo%*%t(Stto),type = orth_type)
-    params$C = OmicsPLS::orth(t(Y) %*% mu_U - params$Co%*%t(Suuo),type = orth_type)
-    # params$W = OmicsPLS::orth(t(X - mu_To %*% t(params$Wo)) %*% mu_T, type = orth_type)
-    # params$C = OmicsPLS::orth(t(Y - mu_Uo %*% t(params$Co)) %*% mu_U, type = orth_type)
+    params$W = orth(t(X) %*% mu_T - params$Wo%*%t(Stto),type = orth_type)#%*%solve(Stt)
+    params$C = orth(t(Y) %*% mu_U - params$Co%*%t(Suuo),type = orth_type)#%*%solve(Suu)
+    # params$W = orth(t(X - mu_To %*% t(params$Wo)) %*% mu_T, type = orth_type)
+    # params$C = orth(t(Y - mu_Uo %*% t(params$Co)) %*% mu_U, type = orth_type)
 
     if(multiCM) tmp3 <- E_step(X, Y, params)$loglik
 
-    params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X) %*% mu_To - params$W%*%Stto,type = orth_type))
-    params$Co = suppressWarnings(orth_y*OmicsPLS::orth(t(Y) %*% mu_Uo - params$C%*%Suuo,type = orth_type))
-    # params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X - mu_T %*% t(params$W)) %*% mu_To, type = orth_type))
-    # params$Co = suppressWarnings(orth_y*OmicsPLS::orth(t(Y - mu_U %*% t(params$C)) %*% mu_Uo, type = orth_type))
+    params$Wo = suppressWarnings(orth_x*orth(t(X) %*% mu_To - params$W%*%Stto,type = orth_type))#%*%solve(Stoto)
+    params$Co = suppressWarnings(orth_y*orth(t(Y) %*% mu_Uo - params$C%*%Suuo,type = orth_type))#%*%solve(Suouo)
+    # params$Wo = suppressWarnings(orth_x*orth(t(X - mu_T %*% t(params$W)) %*% mu_To, type = orth_type))
+    # params$Co = suppressWarnings(orth_y*orth(t(Y - mu_U %*% t(params$C)) %*% mu_Uo, type = orth_type))
 
     # objfun2 <- function(Warg){list(value = E_step(X,Y,within(params,{W=as.matrix(Warg$Qt[1:p,1:r])}))$com)}
     # params$W <- orth(GrassmannOptim(objfun2, W = list(Qt = orth(cbind(params$W,matrix(rnorm(p*(p-r)),p))), dim=c(r,p)), max_iter = 1e2)$Qt[,1:r])
@@ -399,14 +400,14 @@ M_step <- function(E_fit, params, X, Y, orth_type = c("SVD","QR"),
       }
       if(steps_multiCM > 0){
         for(i in 1:steps_multiCM){
-          params$W = OmicsPLS::orth(t(X) %*% mu_T - params$Wo%*%t(Stto),type = orth_type)
-          params$C = OmicsPLS::orth(t(Y) %*% mu_U - params$Co%*%t(Suuo),type = orth_type)
-          # params$W = OmicsPLS::orth(t(X - mu_To %*% t(params$Wo)) %*% mu_T, type = orth_type)
-          # params$C = OmicsPLS::orth(t(Y - mu_Uo %*% t(params$Co)) %*% mu_U, type = orth_type)
-          params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X) %*% mu_To - params$W%*%Stto,type = orth_type))
-          params$Co = suppressWarnings(orth_y*OmicsPLS::orth(t(Y) %*% mu_Uo - params$C%*%Suuo,type = orth_type))
-          # params$Wo = suppressWarnings(orth_x*OmicsPLS::orth(t(X - mu_T %*% t(params$W)) %*% mu_To, type = orth_type))
-          # params$Co = suppressWarnings(orth_y*OmicsPLS::orth(t(Y - mu_U %*% t(params$C)) %*% mu_Uo, type = orth_type))
+          params$W = orth(t(X) %*% mu_T - params$Wo%*%t(Stto),type = orth_type)
+          params$C = orth(t(Y) %*% mu_U - params$Co%*%t(Suuo),type = orth_type)
+          # params$W = orth(t(X - mu_To %*% t(params$Wo)) %*% mu_T, type = orth_type)
+          # params$C = orth(t(Y - mu_Uo %*% t(params$Co)) %*% mu_U, type = orth_type)
+          params$Wo = suppressWarnings(orth_x*orth(t(X) %*% mu_To - params$W%*%Stto,type = orth_type))
+          params$Co = suppressWarnings(orth_y*orth(t(Y) %*% mu_Uo - params$C%*%Suuo,type = orth_type))
+          # params$Wo = suppressWarnings(orth_x*orth(t(X - mu_T %*% t(params$W)) %*% mu_To, type = orth_type))
+          # params$Co = suppressWarnings(orth_y*orth(t(Y - mu_U %*% t(params$C)) %*% mu_Uo, type = orth_type))
         }
       }
     }
@@ -477,7 +478,7 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m',
 
       if(i == 1) logl[1] = E_next$logl
       logl[i+1] = E_next$logl# - err[i]
-       #sum(mapply(function(e,f) OmicsPLS::mse(e, f), e=parms, f = parms_next))
+       #sum(mapply(function(e,f) mse(e, f), e=parms, f = parms_next))
       if(i > 1 && abs(logl[i+1]-logl[i]) < tol) break
       if(i %in% c(1e2, 1e3, 5e3, 1e4, 4e4)) {
         print(data.frame(row.names = 1, steps = i, time = unname(proc.time()-tic)[3], diff = logl[i+1]-logl[i], logl = logl[i+1]))
@@ -540,7 +541,8 @@ cov.PO2PLS <- function(fit){
               C%*%(SigT%*%B^2+SigH)%*%t(C)+Co%*%SigUo%*%t(Co)))
 }
 
-variances.PO2PLS <- function(fit, data){
+variances.PO2PLS <- function(fit, data, type_var = c("complete","component","variable")){
+  type_var = match.arg(type_var)
   N = nrow(data)
   p = nrow(fit$par$W)
   q = nrow(fit$par$C)
@@ -573,16 +575,43 @@ variances.PO2PLS <- function(fit, data){
   EZc <- data %*% (GammaEF %*% SigmaZ)
   EZc <- EZc - data %*% ((GammaEF %*% invZtilde)  %*% (GGef %*% SigmaZ))
   Szz = VarZc + crossprod(EZc)/N
-  E3Zc <- EZc%*%crossprod(EZc) + 3*EZc%*%VarZc
-  E4Zc <- crossprod(EZc)^2 + 6*(crossprod(EZc))%*%VarZc + 3*crossprod(VarZc)
+  E3Zc <- EZc%*%crossprod(EZc)/N + 3*EZc%*%VarZc
+  E4Zc <- (crossprod(EZc)/N)^2 + 6*(crossprod(EZc)/N)%*%VarZc + 3*crossprod(VarZc)
 
-  Iobs = lapply(1:ncol(Gamma), function(comp_k) {
-    Bobs <- diag(c(rep(1/fit$par$sig2E,p), rep(1/fit$par$sig2F,q))) * N*Szz[comp_k,comp_k]
-    SSt1 <- Szz[comp_k,comp_k]*crossprod(dataEF)
-    SSt2 <- crossprod(dataEF, E3Zc%*%t(GammaEF))
-    SSt3 <- GammaEF %*% E4Zc %*% t(GammaEF)
-    list(covar_mat = Bobs - SSt1 + SSt2 - SSt3, SEs = -diag(solve((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3)/N)))
-  })
-  Iobs
+  if(type_var == "component"){
+    Iobs = lapply(1:ncol(Gamma), function(comp_k) {
+      Bobs <- diag(c(rep(1/fit$par$sig2E,p), rep(1/fit$par$sig2F,q)))*Szz[comp_k,comp_k]
+      SSt1 <- Szz[comp_k,comp_k]*crossprod(dataEF)/N
+      SSt2 <- crossprod(dataEF, E3Zc[,comp_k]%*%t(GammaEF[,comp_k]))/N
+      SSt3 <- GammaEF[,comp_k] %*% as.matrix(E4Zc[comp_k,comp_k]) %*% t(GammaEF[,comp_k])
+      list(Bobs = Bobs, SSt1 = SSt1, SSt2 = SSt2, SSt3 = SSt3, SEs = -diag(solve((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
+    })
+    return(Iobs)
+  }
+
+  if(type_var == "variable"){
+    Sigmaef_inv = (1/rep(c(fit$par$sig2E,fit$par$sig2F),c(p,q)))
+    Iobs = list()
+    Iobs$Bobs = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) Szz*Sigmaef_inv[j])))
+    Iobs$SSt1 = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) data[i,j]^2*Sigmaef_inv[j]^2*Szz)))
+    Iobs$SSt2 = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) data[i,j]*Sigmaef_inv[j]^2*E3Zc[i,]%*%t(Gamma[j,]))))
+    Iobs$SSt3 = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) Sigmaef_inv[j]^2*E4Zc%*%Gamma[j,]%*%t(Gamma[j,]))))
+    #Iobs$SEs = with(Iobs, -diag(solve((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
+    return(Iobs)
+  }
+
+  if(type_var == "complete"){
+    Sigmaef_inv = diag(1/rep(c(fit$par$sig2E,fit$par$sig2F),c(p,q)))
+    Iobs = list()
+    Iobs$Bobs = Reduce(`+`, lapply(1:N, function(i) Szz %x% Sigmaef_inv))
+    Iobs$muS  = Reduce(`+`, lapply(1:N, function(i) EZc[i,] %x% (Sigmaef_inv %*% (data[i,])) ))
+    Iobs$VarS = Reduce(`+`, lapply(1:N, function(i) VarZc %x% (Sigmaef_inv^2 %*% tcrossprod(data[i,])) -
+                                     (E4Zc %x% Sigmaef_inv^2) %*% tcrossprod(c(Gamma)) ))
+    Iobs$SSt  = Reduce(`+`, lapply(1:N, function(i) Iobs$VarS - tcrossprod(Iobs$muS) ))
+    Iobs$Iobs = with(Iobs, (Bobs - SSt))
+    Iobs$Iobs = with(Iobs, Iobs[-which(c(Gamma)==0),-which(c(Gamma)==0)])
+    #Iobs$SEs = with(Iobs, -diag(solve((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
+    return(Iobs)
+  }
 
 }
