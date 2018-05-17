@@ -33,33 +33,41 @@ generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('o2m','random')
   p = ifelse(is.matrix(X) | type != "random", ncol(X), X)
   q = ifelse(is.matrix(Y) | type != "random", ncol(Y), Y)
   if(type=="o2m"){
-    return(with(o2m(X, Y, r, rx, ry, stripped=TRUE),{
+    outp <- (with(o2m(X, Y, r, rx, ry, stripped=TRUE),{
       list(
         W = W.,
-        Wo = suppressWarnings(orth(P_Yosc.)),
+        Wo = suppressWarnings(sign(rx)*orth(P_Yosc.)),
         C = C.,
-        Co = suppressWarnings(orth(P_Xosc.)),
+        Co = suppressWarnings(sign(rx)*orth(P_Xosc.)),
         B = abs(cov(Tt,U)%*%solve(cov(Tt)))*diag(1,r),
-        SigT = cov(Tt)*diag(1,r),
-        SigTo = sign(rx)*cov(T_Yosc.)*diag(1,max(1,rx)),
-        SigUo = sign(ry)*cov(U_Xosc.)*diag(1,max(1,ry)),
+        SigT = diag(1,r),
+        SigTo = sign(rx)*diag(1,max(1,rx)),
+        SigUo = sign(ry)*diag(1,max(1,ry)),
         SigH = cov(H_UT)*diag(1,r),
         sig2E = (ssq(X)-ssq(Tt)-ssq(T_Yosc.))/prod(dim(X)) + 0.01,
         sig2F = (ssq(Y)-ssq(U)-ssq(U_Xosc.))/prod(dim(Y)) + 0.01
       )}))
+    tmp_factor = outp$B^2 + outp$SigH
+    outp$B = outp$B %*% solve(sqrt(tmp_factor))
+    outp$SigH = outp$SigH %*% solve(tmp_factor)
+    return(outp)
   }
   if(type=="random"){
     outp <- list(
-      W = orth(matrix(rnorm(p*r), p, r)+1),
-      Wo = suppressWarnings(sign(rx)*orth(matrix(rnorm(p*max(1,rx)), p, max(1,rx))+seq(-p/2,p/2,length.out = p))),
-      C = orth(matrix(rnorm(q*r), q, r)+1),
-      Co = suppressWarnings(sign(ry)*orth(matrix(rnorm(q*max(1,rx)), q, max(1,ry))+seq(-q/2,q/2,length.out = q))),
-      B = diag(sort(runif(r,1,4),decreasing = TRUE),r),
-      SigT = diag(sort(runif(r,1,3),decreasing = TRUE),r),
-      SigTo = sign(rx)*diag(sort(runif(max(1,rx),1,3),decreasing = TRUE),max(1,rx)),
-      SigUo = sign(ry)*diag(sort(runif(max(1,ry),1,3),decreasing = TRUE),max(1,ry))
+      W = (matrix(rnorm(p*r), p, r)+1),
+      Wo = suppressWarnings(sign(rx)*(matrix(rnorm(p*max(1,rx)), p, max(1,rx))+seq(-p/2,p/2,length.out = p))),
+      C = (matrix(rnorm(q*r), q, r)+1),
+      Co = suppressWarnings(sign(ry)*(matrix(rnorm(q*max(1,rx)), q, max(1,ry))+seq(-q/2,q/2,length.out = q))),
+      B = diag(1,r),
+      SigT = diag(1,r),
+      SigTo = sign(rx)*diag(1,max(1,rx)),
+      SigUo = sign(ry)*diag(1,max(1,ry))
     )
     outp$SigH = diag(alpha/(1-alpha)*(mean(diag(outp$SigT%*%outp$B))),r) #cov(H_UT)*diag(1,r),
+    tmp_factor = outp$B^2 + outp$SigH
+    outp$B = outp$B %*% solve(sqrt(tmp_factor))
+    outp$SigH = outp$SigH %*% solve(tmp_factor)
+
     with(outp, {
       c(outp,
         sig2E = alpha/(1-alpha)*(mean(diag(SigT)) + mean(diag(SigTo)))/p,
@@ -320,24 +328,26 @@ M_step <- function(E_fit, params, X, Y, orth_type = c("SVD","QR")){
   orth_y = ssq(params$Co) > 0
   orth_type = match.arg(orth_type)
   with(E_fit,{
-
-    N = nrow(X)
+    tmp <- E_fit$loglik
+    N <- nrow(X)
     r = ncol(mu_T)
     rx = ncol(mu_To)
     ry = ncol(mu_Uo)
+    params_old <- params
+    params$SigT = diag(1,r)
+    params$SigTo = diag(1,rx)
+    params$SigUo = diag(1,ry)
     params$B = Sut %*% solve(Stt) * diag(1,r)
-    params$SigT = Stt*diag(1,r)
-    params$SigTo = Stoto*diag(1,rx)
-    params$SigUo = Suouo*diag(1,ry)
-    params$SigH = Shh*diag(1,r)#abs(Suu - 2*Sut%*%params_old$B + Stt%*%params_old$B^2)
+    params$SigH = Shh*diag(1,r) #abs(Suu - 2*Sut%*%params$B + Stt%*%params$B^2)*diag(1,r)
+    tmp_factor = params$B^2 + params$SigH
+    params$B = params$B %*% solve(sqrt(tmp_factor))
+    params$SigH = params$SigH %*% solve(tmp_factor)
     params$sig2E = See
     params$sig2F = Sff
-
-    params$W = orth(t(X/N) %*% mu_T - params$Wo%*%t(Stto),type = orth_type)#%*%solve(Stt)
-    params$C = orth(t(Y/N) %*% mu_U - params$Co%*%t(Suuo),type = orth_type)#%*%solve(Suu)
-
-    params$Wo = suppressWarnings(orth_x*orth(t(X/N) %*% mu_To - params$W%*%Stto,type = orth_type))#%*%solve(Stoto)
-    params$Co = suppressWarnings(orth_y*orth(t(Y/N) %*% mu_Uo - params$C%*%Suuo,type = orth_type))#%*%solve(Suouo)
+    params$W = (t(X/N) %*% mu_T - params$Wo%*%t(Stto))%*%solve(Stt)
+    params$C = (t(Y/N) %*% mu_U - params$Co%*%t(Suuo))%*%solve(Suu)
+    params$Wo = suppressWarnings(orth_x*(t(X/N) %*% mu_To - params$W%*%Stto))%*%solve(Stoto)
+    params$Co = suppressWarnings(orth_y*(t(Y/N) %*% mu_Uo - params$C%*%Suuo))%*%solve(Suouo)
     params
   })
 }
@@ -462,7 +472,7 @@ variances.PO2PLS <- function(fit, data, type_var = c("complete","component","var
   Gamma = with(fit$par, {
     rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry)),
           cbind(matrix(0,q,r), C, matrix(0,q,rx), Co))
-    })
+  })
   SigmaZ = with(fit$par,{
     blockm(
       blockm(
