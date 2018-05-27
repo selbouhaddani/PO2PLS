@@ -39,7 +39,7 @@ generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('o2m','random')
         Wo = suppressWarnings(orth(P_Yosc.)),
         C = C.,
         Co = suppressWarnings(orth(P_Xosc.)),
-        B = abs(cov(Tt,U)%*%solve(cov(Tt)))*diag(1,r),
+        B = abs(cov(Tt,U)%*%MASS::ginv(cov(Tt)))*diag(1,r),
         SigT = cov(Tt)*diag(1,r),
         SigTo = sign(rx)*cov(T_Yosc.)*diag(1,max(1,rx)),
         SigUo = sign(ry)*cov(U_Xosc.)*diag(1,max(1,ry)),
@@ -120,14 +120,14 @@ Lemma <- function(X, SigmaZ, invZtilde, Gamma, sig2E, sig2F, p, q, r, rx, ry){
   GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)] <- 1/sig2F* GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)]
 
   #invSEF <- diag(1/diag(SigmaEF))
-  #invS <- invSEF - invSEF %*% Gamma %*% solve(solve(SigmaZ) + t(Gamma)%*%invSEF%*%Gamma) %*% t(Gamma) %*% invSEF
+  #invS <- invSEF - invSEF %*% Gamma %*% MASS::ginv(MASS::ginv(SigmaZ) + t(Gamma)%*%invSEF%*%Gamma) %*% t(Gamma) %*% invSEF
   GGef <- t(Gamma) %*% GammaEF
   VarZc <- SigmaZ - (t(Gamma %*% SigmaZ) %*% GammaEF) %*% SigmaZ +
     (t(Gamma %*% SigmaZ) %*% GammaEF) %*% invZtilde %*% GGef %*% SigmaZ
 
   EZc <- X %*% (GammaEF %*% SigmaZ)
   EZc <- EZc - X %*% ((GammaEF %*% invZtilde)  %*% (GGef %*% SigmaZ))
-  # solve(t(0))
+  # MASS::ginv(t(0))
   return(list(EZc = EZc, VarZc = VarZc))
 }
 
@@ -141,8 +141,8 @@ E_step <- function(X, Y, params){
   Co = params$Co
   B = params$B
   SigT = params$SigT
-  SigTo = (ssq(Wo)>0)*params$SigTo + 1e-10*(ssq(Wo)==0)
-  SigUo = (ssq(Co)>0)*params$SigUo + 1e-10*(ssq(Co)==0)
+  SigTo = (ssq(Wo)>0)*params$SigTo +0# + 1e-10*(ssq(Wo)==0)
+  SigUo = (ssq(Co)>0)*params$SigUo +0# + 1e-10*(ssq(Co)==0)
   SigH = params$SigH
   sig2E = params$sig2E
   sig2F = params$sig2F
@@ -178,7 +178,7 @@ E_step <- function(X, Y, params){
     matrix(0,2*r+rx,ry), SigUo)
 
   ## inverse middle term lemma
-  invZtilde <- solve(solve(SigmaZ) + GGef)
+  invZtilde <- MASS::ginv(MASS::ginv(SigmaZ) + GGef)
 
   ## Calculate conditional expectations with efficient lemma
   # print(all.equal(invS,invS_old))
@@ -195,14 +195,14 @@ E_step <- function(X, Y, params){
   #                      cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/sig2F)
   # inv2EF_Gamma <- rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry))/(sig2E^2),
   #                       cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/(sig2F^2))
-  # invZtilde <- solve(solve(SigmaZ) +
+  # invZtilde <- MASS::ginv(MASS::ginv(SigmaZ) +
   #                      t(Gamma) %*% rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry))/sig2E,
   #                                         cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/sig2F))
   #
   # invS_Gamma <- invEF_Gamma - invEF_Gamma %*% invZtilde %*% crossprod(invEF_Gamma,Gamma)
 
   ## inverse in middle term in lemma
-  # invZtilde <- solve(solve(SigmaZ) +
+  # invZtilde <- MASS::ginv(MASS::ginv(SigmaZ) +
   #                      t(Gamma) %*% rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry))/sig2E,
   #                                         cbind(matrix(0,q,r), C, matrix(0,q,rx), Co)/sig2F))
 
@@ -215,7 +215,7 @@ E_step <- function(X, Y, params){
 
   ## Calculate immediately expected crossprod of E,F
   # Ceeff_old = SigmaEF - t(SigmaEF) %*% invS_covEF + crossprod(mu_EF) / N
-  # Ceeff = Gamma %*% solve(solve(SigmaZ) + t(Gamma)%*%invSEF%*%Gamma) %*% t(Gamma) +
+  # Ceeff = Gamma %*% MASS::ginv(MASS::ginv(SigmaZ) + t(Gamma)%*%invSEF%*%Gamma) %*% t(Gamma) +
   #   crossprod(mu_EF) / N
   # print(all.equal(mu_EF_old, mu_EF))
   # print(all.equal(Ceeff_old, Ceeff))
@@ -273,8 +273,8 @@ E_step <- function(X, Y, params){
   ## INVERSE diagonal cov matrix of (E,F), hopefully NOT NEEDED
   # invSEF <- diag(1/diag(SigmaEF))
   ## INVERSE diagonal cov matrix of (X,Y), hopefully NOT NEEDED
-  # invS <- invSEF - invSEF %*% Gamma %*% solve(solve(SigmaZ) + t(Gamma)%*%invSEF%*%Gamma) %*% t(Gamma) %*% invSEF
-  # if(use_lemma == TRUE){solve(t(0))}
+  # invS <- invSEF - invSEF %*% Gamma %*% MASS::ginv(MASS::ginv(SigmaZ) + t(Gamma)%*%invSEF%*%Gamma) %*% t(Gamma) %*% invSEF
+  # if(use_lemma == TRUE){MASS::ginv(t(0))}
   ## log of det SigmaXY, see matrix determinant lemma
   logdet <- log(det(diag(2*r+rx+ry) + GGef%*%SigmaZ))+p*log(sig2E)+q*log(sig2F)
   ## representation of SigmaXY %*% invS
@@ -284,7 +284,7 @@ E_step <- function(X, Y, params){
   loglik = N*(p+q)*log(2*pi) + N * logdet + XYinvS
   loglik = - loglik/2
   # print(all.equal(XYinvS, sum(diag(dataXY %*% invS %*% t(dataXY)))))
-  # solve(t(0))
+  # MASS::ginv(t(0))
 
   comp_log <- - N/2*(p+q)*log(2*pi)
   comp_log <- comp_log - N/2*(p*log(sig2E)+q*log(sig2F))
@@ -325,7 +325,7 @@ M_step <- function(E_fit, params, X, Y, orth_type = c("SVD","QR")){
     r = ncol(mu_T)
     rx = ncol(mu_To)
     ry = ncol(mu_Uo)
-    params$B = Sut %*% solve(Stt) * diag(1,r)
+    params$B = Sut %*% MASS::ginv(Stt) * diag(1,r)
     params$SigT = Stt*diag(1,r)
     params$SigTo = Stoto*diag(1,rx)
     params$SigUo = Suouo*diag(1,ry)
@@ -333,11 +333,11 @@ M_step <- function(E_fit, params, X, Y, orth_type = c("SVD","QR")){
     params$sig2E = See
     params$sig2F = Sff
 
-    params$W = orth(t(X/N) %*% mu_T - params$Wo%*%t(Stto),type = orth_type)#%*%solve(Stt)
-    params$C = orth(t(Y/N) %*% mu_U - params$Co%*%t(Suuo),type = orth_type)#%*%solve(Suu)
+    params$W = orth(t(X/N) %*% mu_T - params$Wo%*%t(Stto),type = orth_type)#%*%MASS::ginv(Stt)
+    params$C = orth(t(Y/N) %*% mu_U - params$Co%*%t(Suuo),type = orth_type)#%*%MASS::ginv(Suu)
 
-    params$Wo = suppressWarnings(orth_x*orth(t(X/N) %*% mu_To - params$W%*%Stto,type = orth_type))#%*%solve(Stoto)
-    params$Co = suppressWarnings(orth_y*orth(t(Y/N) %*% mu_Uo - params$C%*%Suuo,type = orth_type))#%*%solve(Suouo)
+    params$Wo = suppressWarnings(orth_x*orth(t(X/N) %*% mu_To - params$W%*%Stto,type = orth_type))#%*%MASS::ginv(Stoto)
+    params$Co = suppressWarnings(orth_y*orth(t(Y/N) %*% mu_Uo - params$C%*%Suuo,type = orth_type))#%*%MASS::ginv(Suouo)
     params
   })
 }
@@ -410,7 +410,7 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e2, tol = 1e-6, init_param='o2m',
   params$W <- params$W[,ordSB]
   params$C <- params$C[,ordSB]
   message("Nr steps was ", i)
-  message("Negative increments: ", any(diff(logl[-1]) < -1e-10),
+  message("Negative increments: ", any(diff(logl[0:i+1]) < 0),
           "; Last increment: ", signif(logl[i+1]-logl[i],4))
   message("Log-likelihood: ", logl[i+1])
   outputt <- list(params = params_next, logl = logl[0:i+1][-1])
@@ -474,7 +474,7 @@ variances.PO2PLS <- function(fit, data, type_var = c("complete","component","var
   GammaEF[1:p,c(1:r,2*r+1:rx)] <- 1/fit$par$sig2E* GammaEF[1:p,c(1:r,2*r+1:rx)]
   GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)] <- 1/fit$par$sig2F* GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)]
   GGef <- t(Gamma) %*% GammaEF
-  invZtilde <- solve(solve(SigmaZ) + GGef)
+  invZtilde <- MASS::ginv(MASS::ginv(SigmaZ) + GGef)
   VarZc <- SigmaZ - (t(Gamma %*% SigmaZ) %*% GammaEF) %*% SigmaZ +
     (t(Gamma %*% SigmaZ) %*% GammaEF) %*% invZtilde %*% GGef %*% SigmaZ
 
@@ -490,7 +490,7 @@ variances.PO2PLS <- function(fit, data, type_var = c("complete","component","var
       SSt1 <- Szz[comp_k,comp_k]*crossprod(dataEF)/N
       SSt2 <- crossprod(dataEF, E3Zc[,comp_k]%*%t(GammaEF[,comp_k]))/N
       SSt3 <- GammaEF[,comp_k] %*% as.matrix(E4Zc[comp_k,comp_k]) %*% t(GammaEF[,comp_k])
-      list(Bobs = Bobs, SSt1 = SSt1, SSt2 = SSt2, SSt3 = SSt3, SEs = -diag(solve((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
+      list(Bobs = Bobs, SSt1 = SSt1, SSt2 = SSt2, SSt3 = SSt3, SEs = -diag(MASS::ginv((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
     })
     return(Iobs)
   }
@@ -502,7 +502,7 @@ variances.PO2PLS <- function(fit, data, type_var = c("complete","component","var
     Iobs$SSt1 = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) data[i,j]^2*Sigmaef_inv[j]^2*Szz)))
     Iobs$SSt2 = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) data[i,j]*Sigmaef_inv[j]^2*E3Zc[i,]%*%t(Gamma[j,]))))
     Iobs$SSt3 = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) Sigmaef_inv[j]^2*E4Zc%*%Gamma[j,]%*%t(Gamma[j,]))))
-    #Iobs$SEs = with(Iobs, -diag(solve((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
+    #Iobs$SEs = with(Iobs, -diag(MASS::ginv((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
     return(Iobs)
   }
 
@@ -516,7 +516,7 @@ variances.PO2PLS <- function(fit, data, type_var = c("complete","component","var
     Iobs$SSt  = Reduce(`+`, lapply(1:N, function(i) Iobs$VarS - tcrossprod(Iobs$muS) ))
     Iobs$Iobs = with(Iobs, (Bobs - SSt))
     Iobs$Iobs = with(Iobs, Iobs[-which(c(Gamma)==0),-which(c(Gamma)==0)])
-    #Iobs$SEs = with(Iobs, -diag(solve((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
+    #Iobs$SEs = with(Iobs, -diag(MASS::ginv((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
     return(Iobs)
   }
 

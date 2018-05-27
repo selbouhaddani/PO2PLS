@@ -10,8 +10,8 @@ seBoot <- function(K, X, Y, fit){
   require(fBasics)
   tic <- proc.time()
   r <- ncol(fit$par$W)
-  rx <- ncol(fit$par$Wo)
-  ry <- ncol(fit$par$Co)
+  rx <- ncol(fit$par$Wo)*sign(ssq(fit$par$Wo))
+  ry <- ncol(fit$par$Co)*sign(ssq(fit$par$Co))
   bootsam <- matrix(sample(1:nrow(X), size=K*nrow(X),replace=TRUE),nrow=K)
   reps <- parallelsugar::mclapply(mc.cores=detectCores(), 1:nrow(bootsam), function(i) PO2PLS(X[bootsam[i,],], Y[bootsam[i,],], r, rx, ry, 1e3, 1e-4))
   repsW <- lapply(reps, function(e) coverW(e$par$W,fit$par$W))
@@ -58,12 +58,12 @@ distr_list <- list(norm=rnorm,
                    t=function(n) rt(n, df=2),
                    pois=function(n) rpois(n, lambda=1),
                    binom=function(n) rbinom(n, size = 2, prob = .25))
-N = 100
-p = 5
-q = 5
-r = 1
-rx = 1
-ry = 1
+N = 5000
+p = 20
+q = 20
+r = 3
+rx = 0
+ry = 0
 noise_alpha = 0.1
 distr_name <- names(distr_list)[1]
 distr = distr_list[[distr_name]]
@@ -71,16 +71,16 @@ distr = distr_list[[distr_name]]
 parms <- generate_params(p,q,r,rx,ry, type = 'r',alpha=noise_alpha)
 #parms$SigH = diag(rep(mean(diag(parms$SigH)),r))
 #parms$B <- parms$B + diag(10,r)
-tmp_factor = parms$B^2 + parms$SigH
-parms$B = parms$B %*% solve(sqrt(tmp_factor))
-parms$SigH = parms$SigH %*% solve(tmp_factor)
+#tmp_factor = parms$B^2 + parms$SigH
+#parms$B = parms$B %*% solve(sqrt(tmp_factor))
+#parms$SigH = parms$SigH %*% solve(tmp_factor)
 Dat = generate_data(N, parms, distr)
 X = scale(Dat[,1:p], scale = F)
 Y = scale(Dat[,-(1:p)], scale = F)
 
 time_o2m <- system.time(print(pryr::mem_change(fit_o2m <- o2m(X,Y,r,rx,ry,stripped=T))))
 time_po2m <- system.time(print(pryr::mem_change(fit <- PO2PLS(X = X, Y = Y, r = r, rx = rx, ry = ry,
-                                                              steps = 5e3, tol = 1e-6,
+                                                              steps = 1e3, tol = 1e-4,
                                                               init_param = 'o2m'))))
 
 cmax <- function(A,B){
@@ -109,12 +109,16 @@ library(tidyverse)
 N
 K = 100
 SEs10 = unlist(seBoot(K,X[1:10,],Y[1:10,],fit)[5:8])
+SEs10 <- SEs10[SEs10>0]
 aSEs10 <- sqrt(diag(as.matrix(Matrix::nearPD(-solve(variances.PO2PLS(fit,Dat[1:10,])$Iobs))$mat)))
 SEs50 = unlist(seBoot(K,X[1:50,],Y[1:50,],fit)[5:8])
+SEs50 <- SEs50[SEs50>0]
 aSEs50 <- sqrt(diag(as.matrix(Matrix::nearPD(-solve(variances.PO2PLS(fit,Dat[1:50,])$Iobs))$mat)))
 SEs500 = unlist(seBoot(K,X[1:500,],Y[1:500,],fit)[5:8])
+SEs500 <- SEs500[SEs500>0]
 aSEs500 <- sqrt(diag(as.matrix(Matrix::nearPD(-solve(variances.PO2PLS(fit,Dat[1:500,])$Iobs))$mat)))
 SEs5000 = unlist(seBoot(K,X,Y,fit)[5:8])
+SEs5000 <- SEs5000[SEs5000>0]
 aSEs5000 <- sqrt(diag(as.matrix(Matrix::nearPD(-solve(variances.PO2PLS(fit,Dat)$Iobs))$mat)))
 
 seDat <- as.matrix(rbind(t(c(SEs10,xxType="Bootstrap",xxScenario="N=10")),t(c(aSEs10,"Asymptotic","N=10"))))
