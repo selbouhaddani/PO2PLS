@@ -362,7 +362,7 @@ diagnostics.PO2PLS <- function(th, th0){
 }
 
 #' @export
-PO2PLS <- function(X, Y, r, rx, ry, steps = 1e4, tol = 1e-6, init_param='o2m',
+PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
                    orth_type = "SVD", random_restart = FALSE){
   if(all(c("W","Wo","C","Co","B","SigT","SigTo","SigUo","SigH","sig2E","sig2F") %in% names(init_param))) {cat('using old fit \n'); params <- init_param}
   else {params <- generate_params(X, Y, r, rx, ry, type = init_param)}
