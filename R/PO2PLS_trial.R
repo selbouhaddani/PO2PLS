@@ -59,12 +59,12 @@ distr_list <- list(norm=rnorm,
                    pois=function(n) rpois(n, lambda=1),
                    binom=function(n) rbinom(n, size = 2, prob = .25))
 N = 5000
-p = 20
-q = 20
-r = 3
-rx = 0
+p = 25
+q = 15
+r = 5
+rx = 5
 ry = 0
-noise_alpha = 0.1
+noise_alpha = 0.5
 distr_name <- names(distr_list)[1]
 distr = distr_list[[distr_name]]
 #load(paste0('parms_N500_p',p,'_a',noise_alpha*100,'_s',ifelse(noise_alpha == 0.5, 87548, 29867),'L.RData'))
@@ -80,7 +80,7 @@ Y = scale(Dat[,-(1:p)], scale = F)
 
 time_o2m <- system.time(print(pryr::mem_change(fit_o2m <- o2m(X,Y,r,rx,ry,stripped=T))))
 time_po2m <- system.time(print(pryr::mem_change(fit <- PO2PLS(X = X, Y = Y, r = r, rx = rx, ry = ry,
-                                                              steps = 1e3, tol = 1e-4,
+#                                                              steps = 1e3, tol = 1e-4,
                                                               init_param = 'o2m'))))
 
 cmax <- function(A,B){
@@ -107,7 +107,7 @@ list(fits = list(PO2PLS = fit, O2PLS = fit_o2m),
 # outp2 %>% group_by(NegDif) %>% summarise(m1=median(DifComp.1), s1 = mad(DifComp.1))
 library(tidyverse)
 N
-K = 100
+K = 20
 SEs10 = unlist(seBoot(K,X[1:10,],Y[1:10,],fit)[5:8])
 SEs10 <- SEs10[SEs10>0]
 aSEs10 <- sqrt(diag(as.matrix(Matrix::nearPD(-solve(variances.PO2PLS(fit,Dat[1:10,])$Iobs))$mat)))
@@ -134,3 +134,16 @@ ggplot(data = seDat, aes(x=variable, y=value)) +
   geom_point(aes(col=Type, shape=Type), size=2) +
   facet_grid(Scenario ~ ., scales = "free_y") +
   theme_bw()
+
+
+
+library(magrittr)
+outp <- replicate(50,{
+Dat = generate_data(N, parms, distr)
+X = scale(Dat[,1:p], scale = F)
+Y = scale(Dat[,-(1:p)], scale = F)
+fit_NULL <- PO2PLS(X,Y,3,0,0,tol = 1e-2)
+fit_ALT <- PO2PLS(X,Y,4,0,0,tol = 1e-2)
+return(2*(tail(fit_ALT$logl,1) - tail(fit_NULL$logl,1)))
+}) %>% invisible
+hist(outp, freq = F)
