@@ -130,9 +130,11 @@ seDat %<>% as_data_frame
 seDat %<>% mutate_at(vars(-Type,-Scenario), as.numeric)
 seDat %<>% mutate_at(vars(Type,Scenario), as.factor)
 seDat <- reshape2::melt(seDat, id.var=c("Type","Scenario"))
-ggplot(data = seDat, aes(x=variable, y=value)) +
+
+seDat %<>% mutate(variable2 = c(rep(paste0("Wj",1:3),each=20*4*2),rep(paste0("Cj",1:3),each=20*4*2),rep(paste0("Woj",1:2),each=20*4*2),rep(paste0("Coj",1),each=20*4*2)))
+ggplot(data = seDat%>%subset(grepl(x=variable2,"Wj")), aes(x=variable, y=value_n)) +
   geom_point(aes(col=Type, shape=Type), size=2) +
-  facet_grid(Scenario ~ ., scales = "free_y") +
+  facet_grid(Scenario ~ .) +
   theme_bw()
 
 
