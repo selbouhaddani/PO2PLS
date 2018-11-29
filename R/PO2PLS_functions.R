@@ -13,7 +13,9 @@
 #' @docType package
 #' @name PO2PLS-package
 #' @keywords Probabilistic-O2PLS
-#' @import OmicsPLS
+#' @import OmicsPLS Rcpp
+#' @importFrom Rcpp evalCpp
+#' @useDynLib PO2PLS-package
 NULL
 
 #' @export
@@ -418,6 +420,7 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
   return(outputt)
 }
 
+#' @export
 plot_accur.PO2PLS <- function(fit){
   library(ggplot2)
   library(gridExtra)
@@ -440,6 +443,7 @@ plot_accur.PO2PLS <- function(fit){
   print(c(W=max(abs(crossprod(parms$W,parms$Wo))), C=max(abs(crossprod(parms$C,parms$Co)))))
 }
 
+#' @export
 cov.PO2PLS <- function(fit){
   with(fit$par,
        blockm(W%*%SigT%*%t(W)+Wo%*%SigTo%*%t(Wo) ,
@@ -447,6 +451,7 @@ cov.PO2PLS <- function(fit){
               C%*%(SigT%*%B^2+SigH)%*%t(C)+Co%*%SigUo%*%t(Co)))
 }
 
+#' @export
 variances.PO2PLS <- function(fit, data, type_var = c("complete","component","variable")){
   type_var = match.arg(type_var)
   N = nrow(data)
