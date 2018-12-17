@@ -30,10 +30,10 @@ blockm<-function(A,B,C)
 }
 
 #' @export
-generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('o2m','random')){
+generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('random','o2m','canonical')){
   type=match.arg(type)
-  p = ifelse(is.matrix(X) | type != "random", ncol(X), X)
-  q = ifelse(is.matrix(Y) | type != "random", ncol(Y), Y)
+  p = ifelse(is.matrix(X) & type == "o2m", ncol(X), X)
+  q = ifelse(is.matrix(Y) & type == "o2m", ncol(Y), Y)
   if(type=="o2m"){
     return(with(o2m(X, Y, r, rx, ry, stripped=TRUE),{
       list(
@@ -64,11 +64,32 @@ generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('o2m','random')
       SigTo = sign(rx)*diag(sort(runif(max(1,rx),1,3),decreasing = TRUE),max(1,rx)),
       SigUo = sign(ry)*diag(sort(runif(max(1,ry),1,3),decreasing = TRUE),max(1,ry))
     )
-    outp$SigH = diag(alpha/(1-alpha[3])*(mean(diag(outp$SigT%*%outp$B))),r) #cov(H_UT)*diag(1,r),
+    outp$SigH = diag(alpha[3]/(1-alpha[3])*(mean(diag(outp$SigT%*%outp$B))),r) #cov(H_UT)*diag(1,r),
+    return(with(outp, {
+      c(outp,
+        sig2E = alpha[1]/(1-alpha[1])*(mean(diag(SigT)) + mean(diag(SigTo)))/p,
+        sig2F = alpha[2]/(1-alpha[2])*(mean(diag(SigT%*%B^2 + SigH)) + mean(diag(SigUo)))/q)
+    }))
+  }
+  if(type=="canonical"){
+    if(length(alpha) == 1) alpha <- rep(alpha, 3)
+    if(!(length(alpha) %in% c(1,3))) stop("length alpha should be 1 or 3")
+
+    outp <- list(
+      W = orth(matrix(rnorm(p*r), p, r)+1),
+      Wo = suppressWarnings(sign(rx)*orth(matrix(rnorm(p*max(1,rx)), p, max(1,rx))+seq(-p/2,p/2,length.out = p))),
+      C = orth(matrix(rnorm(q*r), q, r)+1),
+      Co = suppressWarnings(sign(ry)*orth(matrix(rnorm(q*max(1,rx)), q, max(1,ry))+seq(-q/2,q/2,length.out = q))),
+      B = diag(r:1,r),
+      SigT = diag(r:1,r),
+      SigTo = sign(rx)*diag(max(1,rx):1,max(1,rx)),
+      SigUo = sign(ry)*diag(max(1,ry):1,max(1,ry))
+    )
+    outp$SigH = diag(alpha[3]/(1-alpha[3])*(mean(diag(outp$SigT%*%outp$B))),r) #cov(H_UT)*diag(1,r),
     with(outp, {
       c(outp,
-        sig2E = alpha/(1-alpha[1])*(mean(diag(SigT)) + mean(diag(SigTo)))/p,
-        sig2F = alpha/(1-alpha[2])*(mean(diag(SigT%*%B^2 + SigH)) + mean(diag(SigUo)))/q)
+        sig2E = alpha[1]/(1-alpha[1])*(mean(diag(SigT)) + mean(diag(SigTo)))/p,
+        sig2F = alpha[2]/(1-alpha[2])*(mean(diag(SigT%*%B^2 + SigH)) + mean(diag(SigUo)))/q)
     })
   }
 }
