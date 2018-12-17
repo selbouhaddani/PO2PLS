@@ -51,6 +51,9 @@ generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('o2m','random')
       )}))
   }
   if(type=="random"){
+    if(length(alpha) == 1) alpha <- rep(alpha, 3)
+    if(!(length(alpha) %in% c(1,3))) stop("length alpha should be 1 or 3")
+
     outp <- list(
       W = orth(matrix(rnorm(p*r), p, r)+1),
       Wo = suppressWarnings(sign(rx)*orth(matrix(rnorm(p*max(1,rx)), p, max(1,rx))+seq(-p/2,p/2,length.out = p))),
@@ -61,11 +64,11 @@ generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('o2m','random')
       SigTo = sign(rx)*diag(sort(runif(max(1,rx),1,3),decreasing = TRUE),max(1,rx)),
       SigUo = sign(ry)*diag(sort(runif(max(1,ry),1,3),decreasing = TRUE),max(1,ry))
     )
-    outp$SigH = diag(alpha/(1-alpha)*(mean(diag(outp$SigT%*%outp$B))),r) #cov(H_UT)*diag(1,r),
+    outp$SigH = diag(alpha/(1-alpha[3])*(mean(diag(outp$SigT%*%outp$B))),r) #cov(H_UT)*diag(1,r),
     with(outp, {
       c(outp,
-        sig2E = alpha/(1-alpha)*(mean(diag(SigT)) + mean(diag(SigTo)))/p,
-        sig2F = alpha/(1-alpha)*(mean(diag(SigT%*%B^2 + SigH)) + mean(diag(SigUo)))/q)
+        sig2E = alpha/(1-alpha[1])*(mean(diag(SigT)) + mean(diag(SigTo)))/p,
+        sig2F = alpha/(1-alpha[2])*(mean(diag(SigT%*%B^2 + SigH)) + mean(diag(SigUo)))/q)
     })
   }
 }

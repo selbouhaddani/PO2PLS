@@ -1,0 +1,211 @@
+---
+title: "PO2PLS interpretation and prediction"
+output: html_document
+---
+
+
+```{r setup, include=F, echo=F}
+setwd('~/Github/PO2PLS/Dev_folder')
+library(knitr)
+library(OmicsPLS)
+library(PPLS)
+library(tidyverse)
+library(magrittr)
+library(plotly)
+source('~/Github/PO2PLS/R/PO2PLS_functions.R')
+
+opts_chunk$set(fig.height = 7, fig.width = 11)
+```
+
+
+## This document is structured as follows:
+
+- R2 of simulation based on real data
+- R2 performances
+- Top 25% loadings
+- Approximation of sample cov
+
+## Research question to answer
+
+- When does O2PLS overfit
+- Does it affect interpretation
+- Where does overfitting occur
+
+## Train and test MSEP performances
+
+#### A controlled setup
+
+- Number of joint components across the columns
+- Dimensionality of $x$ is 200
+- Sample sizes and noise proportions across rows
+- Black line represents median true test error
+- **Main conclusion**: High noise, small sample size leads to overfitting of (O2)PLS
+- In that case, the MSEP is overshadowed by noise, as predictable part is very small
+
+```{r plot R2}
+load('~/MEGANZ/LUMC dingen/LUMC/PhD/Paper 4 PO2PLS/PO2PLS_Software/R2outp_all_comps_nois_topss.RData')
+p <- ggplot(data=R2outp %>% filter(p=="200"), aes(x=method, y=sqrt(value))) +
+  geom_boxplot(aes(col = type %>% factor(c('train','test')))) +
+  geom_hline(yintercept = 1, col = "gray", lty=2) + 
+  geom_hline(data=R2outp%>%filter(method=="TRuE"&type=="test"&p=="200")%>%
+               group_by(N, noise, nr_comp)%>%summarise(avg=median(sqrt(value))), 
+             aes(yintercept = avg)) +
+  facet_grid(N*noise ~ nr_comp, scales = 'free') +
+  theme_bw() + scale_x_discrete("Method") + scale_y_continuous("RMSEP") +
+  theme(axis.title = element_text(face="bold", size=16)) +
+  scale_color_discrete("Type")
+ggplotly(p)
+```
+
+#### Difference in error PO2PLS - O2PLS
+
+- Same data as above, differently represented
+- Difference of prediction error **within** simulated runs
+- Positive difference indicates O2PLS had lower error
+- Gray line means zero difference
+
+```{r plot R2 diff}
+R2diff <- R2outp %>% 
+  filter(method=="po2m") %>% 
+  select(-method) %>% 
+  mutate(value.po2m=value) %>% 
+  select(-value) %>% 
+  bind_cols(R2outp %>% 
+              filter(method=="o2m") %>% 
+              select(-method) %>% 
+              mutate(value.o2m=value) %>% 
+              select(value.o2m))
+
+R2diff %<>% mutate(dif = value.po2m - value.o2m)
+p <- R2diff %>% ggplot(aes(x=nr_comp, y=dif)) + 
+  geom_boxplot(aes(col=type %>% factor(c('train','test')))) + 
+  facet_grid(N*noise ~ p, scales = 'free') + 
+  geom_hline(yintercept = 0, lty=2, col="gray")
+ggplotly(p)
+```
+
+
+#### Conclusions MSEP comparison
+
+- Overfitting prominent in small $N$ large noise case
+- Exaggeration of this effect with larger number of components
+- Test error almost always in favor of PO2PLS, except in large $N$ low dimensionality case
+
+## Correct top 25% in very high D
+
+- We may be bad in predicting Y with 95% noise
+- How do the order of the estimated loadings compare?
+- The proportion of true top 25% in the estimated top 25% are shown in a boxplot
+- Only $p=200$ is considered, $p=20$ is similar
+
+
+```{r function ff}
+p1 <- ggplot(data=topss%>%filter(p=="200"), aes(x=method, y=sqrt(value))) +
+  geom_boxplot(aes(col = method)) +
+  geom_hline(yintercept = 1, col = "gray", lty=2) + 
+  facet_grid(N*noise ~ nr_comp*p, scales = 'free') +
+  theme_bw() + scale_x_discrete("Method") + scale_y_continuous("TPR") +
+  theme(axis.title = element_text(face="bold", size=16))
+
+ggplotly(p1)
+```
+
+- And now the difference of PO2PLS and O2PLS within runs
+- With both $p=20$ and $p=200$
+
+```{r}
+topssdiff <- topss %>% 
+  filter(method=="po2m") %>% 
+  select(-method) %>% 
+  mutate(value.po2m=value) %>% 
+  select(-value) %>% 
+  bind_cols(topss %>% 
+              filter(method=="o2m") %>% 
+              select(-method) %>% 
+              mutate(value.o2m=value) %>% 
+              select(value.o2m))
+topssdiff %<>% mutate(dif = value.po2m - value.o2m)
+
+p2 <- topssdiff %>% ggplot(aes(x=nr_comp, y=dif)) + 
+  geom_boxplot(aes(col=nr_comp)) + 
+  facet_grid(N*noise ~ p, scales = 'free') + 
+  geom_hline(yintercept = 0, lty=2, col="gray")
+ggplotly(p2)
+```
+
+
+#### Conclusions top 25%
+
+- Difference most affected by noise level and number of components (in favor of PO2PLS)
+- In general, PO2PLS has higher TPR in most runs
+
+
+## Train and test errors of covariance blocks Sx, Sxy, Sy
+
+- Finally, we take a look at the performance of the joint part in reconstructing the sample cov matrix
+- For this, we evaluate the MSE of the model-based estimated cov matrix and the sample cov matrix
+- For the test error values, the cov matrix of 1e4 samples was used
+- **main conclusion**: PLS and O2PLS have similar fit regarding Sxy, PPLS does a better job in fitting x, PO2PLS is in between PPLS and (O2)PLS
+
+
+```{r cov plots, eval=F, include=F}
+covUML <- list(Upp = covUpp, Med = covMed, Low = covLow)
+covoutp0 <- covUML %>% #lapply(function(e0) lapply(function(e) lapply(e, function(ee) (ee)[1:5,]))) %>%
+ unlist %>% unname %>% array(dim = c(5,3,2,length(names(covUpp)),3),
+   dimnames=c(dimnames(covUpp[[1]][[1]]),
+              list(names(covUpp[[1]])),list(names(covUpp)),
+              list(names(covUML)))) %>%
+  (reshape2::melt)
+covoutp0$nr_comp <- covoutp0$Var4 %>% str_split('_') %>% sapply(function(e) e[[1]])
+covoutp0$N <- covoutp0$Var4 %>% str_split('_') %>% sapply(function(e) e[[2]]) %>% as.numeric
+covoutp0$p <- covoutp0$Var4 %>% str_split('_') %>% sapply(function(e) e[[3]])
+covoutp0$noise <- covoutp0$Var4 %>% str_split('_') %>% sapply(function(e) e[[4]])
+p <- covoutp0 %>% filter(p == "200") %>%
+    ggplot(aes(x=Var1, y=log(value))) + 
+    geom_point(aes(shape = noise, col = nr_comp)) + 
+    facet_grid(N ~ Var2+Var3, scales='free')
+ggplotly(p)
+```
+
+```{r cov diff, eval=F, include=F}
+covAll2 <- covAll %>% unlist %>% 
+  array(dim = c(length(covAll),
+                length(covAll[[1]]),
+                length(covAll[[1]][[1]]),
+                length(covAll[[1]][[1]][[1]]),
+                length(covAll[[1]][[1]][[1]][[1]])), 
+        dimnames = list(names(covAll),
+                1:length(covAll[[1]]),
+                names(covAll[[1]][[1]]),
+                names(covAll[[1]][[1]][[1]]),
+                names(covAll[[1]][[1]][[1]][[1]])))
+covAll2 %<>% (reshape2::melt) %>% 
+  as_tibble %>% mutate(nr_comp=str_split(Var1, '_')%>%sapply(`[[`,1), 
+                       N = str_split(Var1, '_')%>%sapply(`[[`,2), 
+                       p = str_split(Var1, '_')%>%sapply(`[[`,3), 
+                       noise = str_split(Var1, '_')%>%sapply(`[[`,4)) %>% select(-Var1)
+covAll2 %<>% rename(sim.run = Var2, 
+                    type = Var3, 
+                    block = Var4, 
+                    method = Var5)
+covAll2 %<>% arrange(nr_comp, N, p, noise, type, method, block, sim.run)
+
+covdiff <- covAll2 %>% 
+  filter(method=="PO2PLS") %>% 
+  select(-method) %>% 
+  mutate(value.po2m=log(value)) %>% 
+  select(-value) %>% 
+  bind_cols(covAll2 %>% 
+              filter(method=="O2PLS") %>% 
+              select(-method) %>% 
+              mutate(value.o2m=log(value)) %>% 
+              select(value.o2m))
+covdiff %<>% mutate(dif = value.po2m - value.o2m)
+
+p <- covdiff %>% filter(p=="200") %>%
+    ggplot(aes(x=nr_comp, y=dif)) + 
+    geom_boxplot(aes(col = type)) + 
+    facet_grid(N ~ block*noise, scales='free')
+ggplotly(p)
+```
+
