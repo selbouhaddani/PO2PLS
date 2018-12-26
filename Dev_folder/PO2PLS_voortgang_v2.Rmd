@@ -43,11 +43,13 @@ opts_chunk$set(fig.height = 7, fig.width = 11)
 - In that case, the MSEP is overshadowed by noise, as predictable part is very small
 
 ```{r plot R2}
-load('~/MEGANZ/LUMC dingen/LUMC/PhD/Paper 4 PO2PLS/PO2PLS_Software/R2outp_all_comps_nois_topss.RData')
-p <- ggplot(data=R2outp %>% filter(p=="200"), aes(x=method, y=sqrt(value))) +
+load('~/MEGANZ/LUMC dingen/LUMC/PhD/Paper 4 PO2PLS/PO2PLS_Software/R2outp_final1.RData')
+noise_levels <- levels(R2outp$noise)
+R2outp$noise %<>% as.numeric %>% as.factor
+p <- ggplot(data=R2outp%>%filter(method!="ppls"), aes(x=method, y=sqrt(value))) +
   geom_boxplot(aes(col = type %>% factor(c('train','test')))) +
-  geom_hline(yintercept = 1, col = "gray", lty=2) + 
-  geom_hline(data=R2outp%>%filter(method=="TRuE"&type=="test"&p=="200")%>%
+  #geom_hline(yintercept = 1, col = "gray", lty=2) + 
+  geom_hline(data=R2outp%>%filter(method=="TRuE"&type=="test")%>%
                group_by(N, noise, nr_comp)%>%summarise(avg=median(sqrt(value))), 
              aes(yintercept = avg)) +
   facet_grid(N*noise ~ nr_comp, scales = 'free') +
