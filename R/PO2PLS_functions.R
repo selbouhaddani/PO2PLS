@@ -15,7 +15,7 @@
 #' @keywords Probabilistic-O2PLS
 #' @import OmicsPLS Rcpp RcppArmadillo
 #' @importFrom Rcpp evalCpp
-#' @useDynLib PO2PLS-package, .registration=TRUE
+#' @useDynLib PO2PLS, .registration=TRUE
 NULL
 
 #' @export
