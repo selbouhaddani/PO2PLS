@@ -43,11 +43,11 @@ generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('random','o2m',
         Co = suppressWarnings(orth(P_Xosc.)),
         B = abs(cov(Tt,U)%*%MASS::ginv(cov(Tt)))*diag(1,r),
         SigT = cov(Tt)*diag(1,r),
-        SigTo = sign(rx)*cov(T_Yosc.)*diag(1,max(1,rx)),
-        SigUo = sign(ry)*cov(U_Xosc.)*diag(1,max(1,ry)),
+        SigTo = sign(rx)*cov(T_Yosc)*diag(1,max(1,rx)),
+        SigUo = sign(ry)*cov(U_Xosc)*diag(1,max(1,ry)),
         SigH = cov(H_UT)*diag(1,r),
-        sig2E = (ssq(X)-ssq(Tt)-ssq(T_Yosc.))/prod(dim(X)) + 0.01,
-        sig2F = (ssq(Y)-ssq(U)-ssq(U_Xosc.))/prod(dim(Y)) + 0.01
+        sig2E = (ssq(X)-ssq(Tt)-ssq(T_Yosc))/prod(dim(X)) + 0.01,
+        sig2F = (ssq(Y)-ssq(U)-ssq(U_Xosc))/prod(dim(Y)) + 0.01
       )}))
   }
   if(type=="random"){
