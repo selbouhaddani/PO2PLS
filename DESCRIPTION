@@ -8,7 +8,7 @@ Maintainer: Said el Bouhaddani <s.el_bouhaddani@lumc.nl>
 Description: This package implements the O2PLS method in a probabilistic framework.
 License: GPL-3
 LazyData: TRUE
-LinkingTo: Rcpp
+LinkingTo: Rcpp, RcppArmadillo
 Imports:
     OmicsPLS, Rcpp
 RoxygenNote: 6.0.1

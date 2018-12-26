@@ -13,9 +13,9 @@
 #' @docType package
 #' @name PO2PLS-package
 #' @keywords Probabilistic-O2PLS
-#' @import OmicsPLS Rcpp
+#' @import OmicsPLS Rcpp RcppArmadillo
 #' @importFrom Rcpp evalCpp
-#' @useDynLib PO2PLS-package
+#' @useDynLib PO2PLS-package, .registration=TRUE
 NULL
 
 #' @export
@@ -526,6 +526,7 @@ E_step <- function(X, Y, params){
                      W, C, Wo, Co, SigT, SigH, sig2E, sig2F))
 }
 
+#' @export
 E_step_test <- function(dataXY, p, q, r, rx, ry, N,
                         SigmaZ, GammaEF, invZtilde, Gamma, GGef, EZc, Szz,
                         W, C, Wo, Co, SigT, SigH, sig2E, sig2F){

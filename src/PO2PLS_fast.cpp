@@ -6,7 +6,6 @@
 //// [[Rcpp::depends(BH)]]
 
 using namespace std;
-using namespace std;
 using namespace Rcpp;
 using namespace arma;
 

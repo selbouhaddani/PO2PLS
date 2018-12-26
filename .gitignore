@@ -31,3 +31,8 @@ PO2PLS_notebook*
 *.utf8.md
 *.knit.md
 .Rproj.user
+
+# Cpp files
+src/*.o
+src/*.so
+src/*.dll

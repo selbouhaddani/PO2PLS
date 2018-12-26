@@ -46,13 +46,13 @@ opts_chunk$set(fig.height = 7, fig.width = 11)
 load('~/MEGANZ/LUMC dingen/LUMC/PhD/Paper 4 PO2PLS/PO2PLS_Software/R2outp_final1.RData')
 noise_levels <- levels(R2outp$noise)
 R2outp$noise %<>% as.numeric %>% as.factor
-p <- ggplot(data=R2outp%>%filter(method!="ppls"), aes(x=method, y=sqrt(value))) +
+p <- ggplot(data=R2outp%>%filter(method!="ppls",nr_comp=="555"), aes(x=method, y=sqrt(value))) +
   geom_boxplot(aes(col = type %>% factor(c('train','test')))) +
   #geom_hline(yintercept = 1, col = "gray", lty=2) + 
-  geom_hline(data=R2outp%>%filter(method=="TRuE"&type=="test")%>%
-               group_by(N, noise, nr_comp)%>%summarise(avg=median(sqrt(value))), 
+  geom_hline(data=R2outp%>%filter(method=="TRuE"&type=="test"&nr_comp=='555')%>%
+               group_by(N, noise)%>%summarise(avg=median(sqrt(value))), 
              aes(yintercept = avg)) +
-  facet_grid(N*noise ~ nr_comp, scales = 'free') +
+  facet_grid(N*noise ~ p, scales = 'free') +
   theme_bw() + scale_x_discrete("Method") + scale_y_continuous("RMSEP") +
   theme(axis.title = element_text(face="bold", size=16)) +
   scale_color_discrete("Type")
