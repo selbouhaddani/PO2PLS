@@ -587,7 +587,7 @@ diagnostics.PO2PLS <- function(th, th0){
 
 #' @export
 PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
-                   orth_type = "SVD", random_restart = FALSE){
+                   orth_type = "SVD", random_restart = FALSE, homogen_joint = FALSE){
   if(all(c("W","Wo","C","Co","B","SigT","SigTo","SigUo","SigH","sig2E","sig2F") %in% names(init_param))) {message('using old fit \n'); params <- init_param}
   else {params <- generate_params(X, Y, r, rx, ry, type = init_param)}
   logl = 0*0:steps
@@ -607,6 +607,10 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
     for(i in 1:steps){
       E_next = E_step(X, Y, params)
       params_next = M_step(E_next, params, X, Y, orth_type = orth_type)
+      if(homogen_joint){
+        params_next$B <- diag(1, r)
+        params_next$SigH <- diag(1e-4, r)
+      }
       params_next$B <- abs(params_next$B)
 
       if(i == 1) logl[1] = E_next$logl
