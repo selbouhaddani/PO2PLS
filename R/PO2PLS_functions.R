@@ -1,6 +1,7 @@
 #' PO2PLS: Probabilistic Two-way Orthogonal Partial Least Squares
 #'
-#' This package implements the O2PLS method in a probabilistic framework.
+#' This package implements the probabilistic O2PLS method.
+#'
 #' @author
 #' Said el Bouhaddani (\email{s.el_bouhaddani@@lumc.nl}),
 #' Jeanine Houwing-Duistermaat (\email{J.J.Houwing@@lumc.nl}),
@@ -18,6 +19,16 @@
 #' @useDynLib PO2PLS, .registration=TRUE
 NULL
 
+#' Construct a block-diagonal matrix
+#'
+#' @param A Numerical matrix. Upper diagonal block.
+#' @param B Numerical matrix. Off diagonal block.
+#' @param C Numerical matrix. Lower diagonal block
+#'
+#' @return A block diagonal matrix of the form \eqn{\begin{bmatrix} A & B \\ B' & C \end{bmatrix}}.
+#'
+#' @details This function is typically called for constructing the covariance matrix of $(x,y)$.
+#'
 #' @export
 blockm<-function(A,B,C)
   #input: Matrices A,B,C
@@ -29,8 +40,36 @@ blockm<-function(A,B,C)
   return(M)
 }
 
+
+#' Generate parameter values of a PO2PLS model
+#'
+#' @param X Numerical data matrix or positive integer. This parameter should either be a dataset \eqn{X} or the number of desired \eqn{X} variables.
+#' @param Y Numerical data matrix or positive integer. This parameter should either be a dataset \eqn{Y} or the number of desired \eqn{Y} variables.
+#' @param alpha Numeric vector. The length should be either one or three, with each entry between 0 and 1. It represents the proportion of noise relative to the variation of \eqn{X}, \eqn{Y}, and \eqn{U}, respectively. If only one number is given, it is used for all three parts.
+#' @param type Character. Should be one of "random", "o2m" or "unit". Specifies which kind of parameters should be generated. If "o2m" is chosen, \code{X} and \code{Y} should be data matrices.
+#'
+#' @return A list with
+#' \item{W}{\eqn{X} joint loadings}
+#' \item{Wo}{\eqn{X} specific loadings}
+#' \item{C}{\eqn{Y} joint loadings}
+#' \item{Co}{\eqn{Y} specific loadings}
+#' \item{B}{Regression matrix of \eqn{U} on \eqn{T}}
+#' \item{SigT}{Covariance matrix of \eqn{T}}
+#' \item{SigTo}{Covariance matrix of \eqn{To}}
+#' \item{SigUo}{Covariance matrix of \eqn{Uo}}
+#' \item{SigH}{Covariance matrix of \eqn{H}}
+#' \item{sig2E}{Variance of \eqn{E}}
+#' \item{sig2F}{Variance of \eqn{F}}
+#'
+#' @details A list of PO2PLS parameters are generated based on the value of \code{type}:
+#' \item{\code{type="random"}}{Variance parameters are randomly sampled from a uniform distribution on 1 and 3 (1 and 4 for \eqn{B}).}
+#' \item{\code{type="o2m"}}{O2PLS is fitted to \code{X} and \code{Y} first using \code{\link{o2m}} from the OmicsPLS package, and the corresponding PO2PLS parameters are derived from the result.}
+#' \item{\code{type="unit"}}{The diagonal of each covariance matrix is a decreasing sequence from the number of components to one.}
+#'
+#' @inheritParams PO2PLS
+#'
 #' @export
-generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('random','o2m','canonical')){
+generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('random','o2m','unit')){
   type=match.arg(type)
   p = ifelse(is.matrix(X) & type == "o2m", ncol(X), X)
   q = ifelse(is.matrix(Y) & type == "o2m", ncol(Y), Y)
@@ -71,7 +110,7 @@ generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('random','o2m',
         sig2F = alpha[2]/(1-alpha[2])*(mean(diag(SigT%*%B^2 + SigH)) + mean(diag(SigUo)))/q)
     }))
   }
-  if(type=="canonical"){
+  if(type=="unit"){
     if(length(alpha) == 1) alpha <- rep(alpha, 3)
     if(!(length(alpha) %in% c(1,3))) stop("length alpha should be 1 or 3")
 
