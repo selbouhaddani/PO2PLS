@@ -681,6 +681,9 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
           "; Last increment: ", signif(logl[i+1]-logl[i],4))
   message("Log-likelihood: ", logl[i+1])
   outputt <- list(params = params_next, logl = logl[0:i+1][-1])
+  outputt$flags <- list(time = unname(proc.time()-tic)[3],
+                        call = match.call(),
+                        converg = (logl[i+1]-logl[i]) < tol)
   class(outputt) <- "PO2PLS"
   return(outputt)
 }
