@@ -792,6 +792,10 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
   params$SigT <- params$SigT[ordSB,ordSB]
   params$SigH <- params$SigH[ordSB,ordSB]
   params$B <- params$B[ordSB,ordSB]
+
+  row.names(params$C) <- row.names(params$Co) <- colnames(Y)
+  row.names(params$W) <- row.names(params$Wo) <- colnames(X)
+
   message("Nr steps was ", i)
   message("Negative increments: ", any(diff(logl[0:i+1]) < 0),
           "; Last increment: ", signif(logl[i+1]-logl[i],4))

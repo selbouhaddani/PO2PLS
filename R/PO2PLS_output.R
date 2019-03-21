@@ -25,6 +25,7 @@ PO2PLS_to_po2m <- function(fit, X, Y){
   ssqY <- ssq(Y)
   SigU <- with(fit$par, SigT %*% B^2 + SigH)
   LVs <- E_step(X, Y, fit$par)
+  row.names(LVs$mu_T) <- row.names(LVs$mu_U) <- row.names(LVs$mu_To) <- row.names(LVs$mu_Uo) <- row.names(X)
   R2s <- c(
     R2X = with(fit$par, (tr(SigT) + tr(SigTo))/(tr(SigT)+tr(SigTo)+p*sig2E)),
     R2Y = with(fit$par, (tr(SigU) + tr(SigUo))/(tr(SigU)+tr(SigUo)+q*sig2F)),
