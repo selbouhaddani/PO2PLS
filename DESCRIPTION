@@ -1,14 +1,15 @@
 Package: PO2PLS
 Type: Package
 Title: Probabilistic Two-Way Orthogonal Partial Least Squares
-Version: 0.2
-Date: 2017-06-12
-Author: Said el Bouhaddani
-Maintainer: Said el Bouhaddani <s.el_bouhaddani@lumc.nl>
+Version: 0.5.0
+Date: 2019-03-21
+Encoding: UTF-8
+Author: Said el Bouhaddani, Hae-Won Uh, Geurt Jongbloed, Jeanine Houwing-Duistermaat
+Maintainer: Said el Bouhaddani <s.elbouhaddani@umcutrecht.nl>
 Description: This package implements the O2PLS method in a probabilistic framework.
 License: GPL-3
 LazyData: TRUE
 LinkingTo: Rcpp, RcppArmadillo
 Imports:
-    OmicsPLS, Rcpp
-RoxygenNote: 6.0.1
+    stats, utils, MASS, OmicsPLS, Rcpp, RcppArmadillo, dplyr, tibble, magrittr
+RoxygenNote: 6.1.1

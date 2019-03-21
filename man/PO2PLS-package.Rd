@@ -5,7 +5,7 @@
 \alias{PO2PLS-package}
 \title{PO2PLS: Probabilistic Two-way Orthogonal Partial Least Squares}
 \description{
-This package implements the O2PLS method in a probabilistic framework.
+This package implements the probabilistic O2PLS method.
 }
 \author{
 Said el Bouhaddani (\email{s.el_bouhaddani@lumc.nl}),
