@@ -42,7 +42,7 @@ PO2PLS_to_po2m <- function(fit, X, Y){
     meta_data = list(
       loglikelihood = loglk,
       explained_vars = R2s,
-      comps = with(fit$par, c(r=ncol(W), rx=ssq(Wo)*ncol(Wo),ry=ssq(Co)*ncol(Co))),
+      comps = comps,
       time = fit$flags$time,
       call = fit$flags$call,
       convergence = fit$flags$converg,
