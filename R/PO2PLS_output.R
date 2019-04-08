@@ -43,7 +43,7 @@ PO2PLS_to_po2m <- function(fit, X, Y){
       loglikelihood = loglk,
       explained_vars = R2s,
       comps = comps,
-      time = fit$flags$time,
+      time = ifelse(is.null(fit$flags$time),NA,fit$flags$time),
       call = fit$flags$call,
       convergence = fit$flags$converg,
       ssqs = c(X=ssqX, Y=ssqY)

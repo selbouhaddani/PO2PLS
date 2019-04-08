@@ -792,7 +792,7 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
   params$SigT <- params$SigT[ordSB,ordSB]
   params$SigH <- params$SigH[ordSB,ordSB]
   params$B <- params$B[ordSB,ordSB]
-
+  params[1:9] <- lapply(params[1:9], as.matrix)
   row.names(params$C) <- row.names(params$Co) <- colnames(Y)
   row.names(params$W) <- row.names(params$Wo) <- colnames(X)
 
@@ -805,7 +805,8 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
                         call = match.call(),
                         converg = (logl[i+1]-logl[i]) < tol)
   class(outputt) <- "PO2PLS"
-  return(PO2PLS_to_po2m(outputt,X,Y))
+  outputt <- PO2PLS_to_po2m(outputt,X,Y)
+  return(outputt)
 }
 
 # PO2PLS_slow <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
