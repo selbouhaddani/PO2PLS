@@ -708,7 +708,7 @@ jitter_params <- function(params, amount = NULL){
 #'
 #' @export
 PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
-                   orth_type = "SVD", random_restart = FALSE, homogen_joint = FALSE){
+                   orth_type = "SVD", random_restart = FALSE, homogen_joint = FALSE, null_B = FALSE){
 
   # =============================
   if (length(r) > 1 | length(rx) > 1 | length(ry) > 1)
@@ -763,6 +763,7 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
         params_next$B <- diag(1, r)
         params_next$SigH <- diag(1e-4, r)
       }
+      if(null_B) params_next$B %<>% multiply_by(0)
       params_next$B <- abs(params_next$B)
 
       if(i == 1) logl[1] = E_next$logl
@@ -978,7 +979,7 @@ variances.PO2PLS <- function(fit, data, type_var = c("complete","component","var
     Iobs$SSt  = Reduce(`+`, lapply(1:N, function(i) Iobs$VarS - tcrossprod(Iobs$muS) ))
     Iobs$Iobs = with(Iobs, (Bobs - SSt))
     Iobs$Iobs = with(Iobs, Iobs[-which(c(Gamma)==0),-which(c(Gamma)==0)])
-    #Iobs$SEs = with(Iobs, -diag(MASS::ginv((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
+    #Iobs$SEs = with(Iobs, diag(MASS::ginv((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
     return(Iobs)
   }
 

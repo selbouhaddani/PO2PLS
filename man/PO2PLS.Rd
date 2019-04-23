@@ -6,7 +6,7 @@
 \usage{
 PO2PLS(X, Y, r, rx, ry, steps = 1e+05, tol = 1e-06,
   init_param = "o2m", orth_type = "SVD", random_restart = FALSE,
-  homogen_joint = FALSE)
+  homogen_joint = FALSE, null_B = FALSE)
 }
 \arguments{
 \item{X}{Numeric matrix. Other types will be coerced to matrix with \code{as.matrix} (if this is possible)}
