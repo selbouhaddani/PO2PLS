@@ -698,6 +698,7 @@ jitter_params <- function(params, amount = NULL){
 #' @param orth_type Character. One of "SVD" or "QR". Best left set to "SVD"
 #' @param random_restart Not to be used
 #' @param homogen_joint Boolean. Should U=T be assumed? Best left to statistical expert.
+#' @param verbose Boolean. Should output about time and convergence state be printed?
 #'
 #' @return A list with
 #' \describe{
@@ -708,7 +709,8 @@ jitter_params <- function(params, amount = NULL){
 #'
 #' @export
 PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
-                   orth_type = "SVD", random_restart = FALSE, homogen_joint = FALSE, null_B = FALSE){
+                   orth_type = "SVD", random_restart = FALSE, homogen_joint = FALSE, null_B = FALSE,
+                   verbose = TRUE){
 
   # =============================
   if (length(r) > 1 | length(rx) > 1 | length(ry) > 1)
@@ -744,7 +746,7 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
   }
   logl = 0*0:steps
   tic <- proc.time()
-  print(paste('started',date()))
+  if(verbose) print(paste('started',date()))
 
   i_rr <- 0
   random_restart_original <- random_restart
@@ -769,7 +771,7 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
       if(i == 1) logl[1] = E_next$logl
       logl[i+1] = E_next$logl
       if(i > 1 && abs(logl[i+1]-logl[i]) < tol) break
-      if(i %in% c(1e1, 1e2, 1e3, 5e3, 1e4, 4e4)) {
+      if(verbose & i %in% c(1e1, 1e2, 1e3, 5e3, 1e4, 4e4)) {
         print(data.frame(row.names = 1, steps = i, time = unname(proc.time()-tic)[3], diff = logl[i+1]-logl[i], logl = logl[i+1]))
       }
       if(logl[i+1] > max(logl[1:i])) params_max <- params_next
@@ -983,4 +985,64 @@ variances.PO2PLS <- function(fit, data, type_var = c("complete","component","var
     return(Iobs)
   }
 
+}
+
+#' Calculate standard errors for the inner relation coefficient B
+#'
+#' @param fit A PO2PLS fit of class po2m
+#' @inheritParams PO2PLS
+#'
+#' @return A vector with the standard errors for B per component
+#'
+#' @export
+variances_inner.po2m <- function(fit, X, Y){
+  tmp.Estep <- E_step(X, Y, fit$par)
+  with(tmp.Estep,
+       Stt%*%solve(fit$par$SigH) -
+         (crossprod(Sut) - crossprod(Stt)%*%fit$par$B^2)%*%
+         solve(fit$par$SigH^2)) %>%
+    multiply_by() %>% solve %>% diag %>% raise_to_power(0.5)
+}
+
+#' Calculate standard errors for the inner relation coefficient B
+#'
+#' @param fit A PO2PLS fit of class po2m
+#' @inheritParams PO2PLS
+#' @param rep.cores Positive integer. Number of cores.
+#' @param rep.K Positive integer. Number of repeats.
+#' @param ... Additional arguments for the PO2PLS fit. In particular, one may specify \code{steps=100, init_param=fit$par, verbose=FALSE}
+#'
+#' @return A vector with the standard errors for B per component
+#'
+#' @export
+bootstrap_inner.po2m <- function(fit, X, Y, rep.cores = 1, rep.K = 5, ...){
+
+  r <- ncol(fit$par$W)
+  rx <- ncol(fit$par$Wo)*sign(ssq(fit$par$Wo))
+  ry <- ncol(fit$par$Co)*sign(ssq(fit$par$Co))
+  rep.indx <- replicate(rep.K, sample(nrow(X), replace = TRUE))
+
+  cl_bootstr <- NULL
+  on.exit({
+    if (!is.null(cl_bootstr)) {stopCluster(cl_bootstr); gc()}
+  })
+  if (Sys.info()[["sysname"]] == "Windows" && rep.cores > 1) {
+    cl_bootstr <- makePSOCKcluster(rep.cores)
+    clusterEvalQ(cl_bootstr, {library(OmicsPLS); library(PO2PLS); library(tidyverse)})
+    clusterExport(cl_bootstr, varlist = ls(), envir = environment())
+    boot.par <- parLapply(mc.cores = rep.cores, 1:rep.K,
+                            FUN = function(rep.i) {
+                              fit_rep <- suppressMessages(PO2PLS((X[rep.indx[,rep.i], ]), (Y[rep.indx[,rep.i], ]), r, rx, ry, ...))
+                              return(diag(fit_rep$par$B))
+                            })
+  }
+  else {
+    boot.par <- mclapply(mc.cores = rep.cores, 1:rep.K,
+                          FUN = function(rep.i) {
+                            fit_rep <- suppressMessages(PO2PLS((X[rep.indx[,rep.i], ]), (Y[rep.indx[,rep.i], ]), r, rx, ry, ...))
+                            return(diag(fit_rep$par$B))
+                          })
+  }
+
+  return(boot.par %>% do.call(what=cbind, args = .) %>% apply(1,sd))
 }
