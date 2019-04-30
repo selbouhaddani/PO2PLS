@@ -11,5 +11,5 @@ License: GPL-3
 LazyData: TRUE
 LinkingTo: Rcpp, RcppArmadillo
 Imports:
-    stats, utils, MASS, OmicsPLS, Rcpp, RcppArmadillo, dplyr, tibble, magrittr
+    stats, utils, MASS, OmicsPLS, Rcpp, RcppArmadillo, dplyr, tibble, magrittr, parallel
 RoxygenNote: 6.1.1

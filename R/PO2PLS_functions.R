@@ -14,7 +14,7 @@
 #' @docType package
 #' @name PO2PLS-package
 #' @keywords Probabilistic-O2PLS
-#' @import OmicsPLS Rcpp RcppArmadillo magrittr dplyr tibble
+#' @import OmicsPLS Rcpp RcppArmadillo magrittr dplyr tibble parallel
 #' @importFrom Rcpp evalCpp
 #' @importFrom utils tail
 #' @importFrom stats pchisq rnorm runif
