@@ -979,9 +979,9 @@ variances.PO2PLS <- function(fit, data, type_var = c("complete","component","var
     Iobs$VarS = Reduce(`+`, lapply(1:N, function(i) VarZc %x% (Sigmaef_inv^2 %*% tcrossprod(data[i,])) -
                                      (E4Zc %x% Sigmaef_inv^2) %*% tcrossprod(c(Gamma)) ))
     Iobs$SSt  = Reduce(`+`, lapply(1:N, function(i) Iobs$VarS - tcrossprod(Iobs$muS) ))
-    Iobs$Iobs = with(Iobs, (Bobs - SSt))
+    Iobs$Iobs = with(Iobs, (Bobs - SSt/N))
     Iobs$Iobs = with(Iobs, Iobs[-which(c(Gamma)==0),-which(c(Gamma)==0)])
-    #Iobs$SEs = with(Iobs, diag(MASS::ginv((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
+    Iobs$SEs = (diag(solve(Iobs$Iobs)))
     return(Iobs)
   }
 
