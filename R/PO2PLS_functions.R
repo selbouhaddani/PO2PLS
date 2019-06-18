@@ -1001,7 +1001,7 @@ variances_inner.po2m <- function(fit, X, Y){
        Stt%*%solve(fit$par$SigH) -
          (crossprod(Sut) - crossprod(Stt)%*%fit$par$B^2)%*%
          solve(fit$par$SigH^2)) %>%
-    multiply_by(nrow(X)) %>% solve %>% diag %>% raise_to_power(0.5)
+    multiply_by(nrow(X)) %>% solve %>% diag %>% abs %>% raise_to_power(0.5)
 }
 
 #' Calculate standard errors for the inner relation coefficient B
