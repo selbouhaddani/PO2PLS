@@ -89,11 +89,11 @@ generate_params <- function(X, Y, r, rx, ry, alpha = 0.1, type=c('random','o2m',
         Co = suppressWarnings(orth(P_Xosc.)),
         B = abs(cov(Tt,U)%*%MASS::ginv(cov(Tt)))*diag(1,r),
         SigT = cov(Tt)*diag(1,r),
-        SigTo = sign(rx)*cov(T_Yosc.)*diag(1,max(1,rx)),
-        SigUo = sign(ry)*cov(U_Xosc.)*diag(1,max(1,ry)),
+        SigTo = sign(rx)*cov(T_Yosc)*diag(1,max(1,rx)),
+        SigUo = sign(ry)*cov(U_Xosc)*diag(1,max(1,ry)),
         SigH = cov(H_UT)*diag(1,r),
-        sig2E = (ssq(X)-ssq(Tt)-ssq(T_Yosc.))/prod(dim(X)) + 0.01,
-        sig2F = (ssq(Y)-ssq(U)-ssq(U_Xosc.))/prod(dim(Y)) + 0.01
+        sig2E = (ssq(X)-ssq(Tt)-ssq(T_Yosc))/prod(dim(X)) + 0.01,
+        sig2F = (ssq(Y)-ssq(U)-ssq(U_Xosc))/prod(dim(Y)) + 0.01
       )}))
   }
   if(type=="random"){
@@ -694,7 +694,7 @@ jitter_params <- function(params, amount = NULL){
 #' @param ry Non-negative integer. Number of orthogonal components in \eqn{Y}. Can be 0
 #' @param steps Positive integer. Number of EM steps to perform
 #' @param tol Positive double. Tolerance of deciding if the likelihood increment is small enough to conclude convergence.
-#' @param init_param Character. Should be one of "random", "o2m" or "unit". Specifies which kind of parameters should be generated.
+#' @param init_param Character. Should be one of "o2m", "random" or "unit". Specifies which kind of parameters should be generated.
 #' @param orth_type Character. One of "SVD" or "QR". Best left set to "SVD"
 #' @param random_restart Not to be used
 #' @param homogen_joint Boolean. Should U=T be assumed? Best left to statistical expert.
@@ -708,11 +708,19 @@ jitter_params <- function(params, amount = NULL){
 #' }
 #'
 #' @export
-PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
+PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param=c("o2m", "random", "unit"),
                    orth_type = "SVD", random_restart = FALSE, homogen_joint = FALSE, null_B = FALSE,
                    verbose = TRUE){
 
   # =============================
+  if(!is.matrix(X)){
+    message("X has class ",class(X),", trying to convert with as.matrix.",sep="")
+    X <- as.matrix(X)
+  }
+  if(!is.matrix(Y)){
+    message("Y has class ",class(Y),", trying to convert with as.matrix.",sep="")
+    Y <- as.matrix(Y)
+  }
   if (length(r) > 1 | length(rx) > 1 | length(ry) > 1)
     stop("Number of components should be scalars, not vectors")
   if (ncol(X) < r + rx)
@@ -720,7 +728,7 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
   if (ncol(Y) < r + ry)
     stop("r + ry = ", r + ry, " exceeds # columns in Y = ", ncol(Y))
   if (rx != round(abs(rx)) || ry != round(abs(ry)))
-    stop("r, rx and ry should be non-negative integers")
+    stop("rx and ry should be non-negative integers")
   if (steps != round(abs(steps)))
     stop("max_iterations should be a non-negative integer")
   if (tol < 0)
@@ -737,13 +745,27 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param='o2m',
     message("Data is not centered, proceeding...")
   }
   # ==============================
-  if(all(c("W","Wo","C","Co","B","SigT","SigTo","SigUo","SigH","sig2E","sig2F") %in% names(init_param))) {message('using old fit \n'); params <- init_param}
+
+
+  if(all(c("W","Wo","C","Co","B","SigT","SigTo","SigUo","SigH","sig2E","sig2F") %in% names(init_param)))
+    {message('using old fit \n'); params <- init_param}
   else {
-    if(r+max(rx,ry) <= min(ncol(X),ncol(Y))) {params <- generate_params(X, Y, r, rx, ry, type = init_param)}
-    else {cat("** NOTE: Too many components for init_param='o2m', switched to init_param='unit'**.\n\n");
-      init_param = "unit"
-      params <- generate_params(X, Y, r, rx, ry, type = init_param)}
-  }
+    init_param <- match.arg(init_param)
+    if(r+max(rx,ry) <= min(ncol(X),ncol(Y)) && init_param == "o2m")
+      {
+        params <- generate_params(X, Y, r, rx, ry, type = "o2m")
+      }
+    else
+      {
+      if(r+max(rx,ry) > min(ncol(X),ncol(Y)) && init_param == "o2m")
+        {
+        cat("** NOTE: Too many components for init_param='o2m', switched to init_param='unit'**.\n\n");
+        init_param = "unit"
+        }
+        params <- generate_params(X, Y, r, rx, ry, type = init_param)
+      }
+    }
+
   logl = 0*0:steps
   tic <- proc.time()
   if(verbose) print(paste('started',date()))

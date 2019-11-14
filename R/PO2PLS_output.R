@@ -61,7 +61,7 @@ PO2PLS_to_po2m <- function(fit, X, Y){
 #' @export
 print.po2m <- function(x, digits = 3, ...){
 #  cat('\n')
-  cat(paste0("Call: ", x$meta_data$call %>% deparse))
+  cat(paste0("Call: ", x$meta_data$call %>% deparse(500L)))
   cat('\n')
 
   cat('\n')

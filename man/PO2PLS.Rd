@@ -5,8 +5,9 @@
 \title{Perform O2-PLS with two-way orthogonal corrections}
 \usage{
 PO2PLS(X, Y, r, rx, ry, steps = 1e+05, tol = 1e-06,
-  init_param = "o2m", orth_type = "SVD", random_restart = FALSE,
-  homogen_joint = FALSE, null_B = FALSE, verbose = TRUE)
+  init_param = c("o2m", "random", "unit"), orth_type = "SVD",
+  random_restart = FALSE, homogen_joint = FALSE, null_B = FALSE,
+  verbose = TRUE)
 }
 \arguments{
 \item{X}{Numeric matrix. Other types will be coerced to matrix with \code{as.matrix} (if this is possible)}
@@ -23,7 +24,7 @@ PO2PLS(X, Y, r, rx, ry, steps = 1e+05, tol = 1e-06,
 
 \item{tol}{Positive double. Tolerance of deciding if the likelihood increment is small enough to conclude convergence.}
 
-\item{init_param}{Character. Should be one of "random", "o2m" or "unit". Specifies which kind of parameters should be generated.}
+\item{init_param}{Character. Should be one of "o2m", "random" or "unit". Specifies which kind of parameters should be generated.}
 
 \item{orth_type}{Character. One of "SVD" or "QR". Best left set to "SVD"}
 
