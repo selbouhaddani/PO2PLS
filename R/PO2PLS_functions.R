@@ -796,7 +796,7 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param=c("o2m",
       if(verbose & i %in% c(1e1, 1e2, 1e3, 5e3, 1e4, 4e4)) {
         print(data.frame(row.names = 1, steps = i, time = unname(proc.time()-tic)[3], diff = logl[i+1]-logl[i], logl = logl[i+1]))
       }
-      if(logl[i+1] > max(logl[1:i])) params_max <- params_next
+      if(random_restart_original & logl[i+1] > max(logl[1:i])) params_max <- params_next
       params = params_next
     }
     if(!any(diff(logl[-1]) < -1e-10) | !random_restart_original) {
