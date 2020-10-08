@@ -4,8 +4,15 @@
 \alias{generate_params}
 \title{Generate parameter values of a PO2PLS model}
 \usage{
-generate_params(X, Y, r, rx, ry, alpha = 0.1, type = c("random", "o2m",
-  "unit"))
+generate_params(
+  X,
+  Y,
+  r,
+  rx,
+  ry,
+  alpha = 0.1,
+  type = c("random", "o2m", "unit")
+)
 }
 \arguments{
 \item{X}{Numerical data matrix or positive integer. This parameter should either be a dataset \eqn{X} or the number of desired \eqn{X} variables.}

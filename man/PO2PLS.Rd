@@ -4,10 +4,21 @@
 \alias{PO2PLS}
 \title{Perform O2-PLS with two-way orthogonal corrections}
 \usage{
-PO2PLS(X, Y, r, rx, ry, steps = 1e+05, tol = 1e-06,
-  init_param = c("o2m", "random", "unit"), orth_type = "SVD",
-  random_restart = FALSE, homogen_joint = FALSE, null_B = FALSE,
-  verbose = TRUE)
+PO2PLS(
+  X,
+  Y,
+  r,
+  rx,
+  ry,
+  steps = 1e+05,
+  tol = 1e-06,
+  init_param = c("o2m", "random", "unit"),
+  orth_type = "SVD",
+  random_restart = FALSE,
+  homogen_joint = FALSE,
+  null_B = FALSE,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{X}{Numeric matrix. Other types will be coerced to matrix with \code{as.matrix} (if this is possible)}

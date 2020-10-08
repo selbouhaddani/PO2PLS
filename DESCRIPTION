@@ -12,4 +12,4 @@ LazyData: TRUE
 LinkingTo: Rcpp, RcppArmadillo
 Imports:
     stats, utils, MASS, OmicsPLS (>= 1.2.3), Rcpp, RcppArmadillo, dplyr, tibble, magrittr, parallel
-RoxygenNote: 6.1.1
+RoxygenNote: 7.1.0

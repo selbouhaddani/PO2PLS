@@ -4,8 +4,7 @@
 \alias{variances.PO2PLS}
 \title{Calculate the variance covariance matrix of the estimated PO2PLS parameters}
 \usage{
-variances.PO2PLS(fit, data, type_var = c("complete", "component",
-  "variable"))
+variances.PO2PLS(fit, data, type_var = c("complete", "component", "variable"))
 }
 \arguments{
 \item{fit}{A PO2PLS fit of class po2m}

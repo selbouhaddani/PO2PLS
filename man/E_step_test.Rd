@@ -4,8 +4,30 @@
 \alias{E_step_test}
 \title{Expectation step}
 \usage{
-E_step_test(dataXY, p, q, r, rx, ry, N, SigmaZ, GammaEF, invZtilde, Gamma,
-  GGef, EZc, Szz, W, C, Wo, Co, SigT, SigH, sig2E, sig2F)
+E_step_test(
+  dataXY,
+  p,
+  q,
+  r,
+  rx,
+  ry,
+  N,
+  SigmaZ,
+  GammaEF,
+  invZtilde,
+  Gamma,
+  GGef,
+  EZc,
+  Szz,
+  W,
+  C,
+  Wo,
+  Co,
+  SigT,
+  SigH,
+  sig2E,
+  sig2F
+)
 }
 \description{
 Internal function only
