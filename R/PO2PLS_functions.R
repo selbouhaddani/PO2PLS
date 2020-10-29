@@ -3,13 +3,12 @@
 #' This package implements the probabilistic O2PLS method.
 #'
 #' @author
-#' Said el Bouhaddani (\email{s.el_bouhaddani@@lumc.nl}),
-#' Jeanine Houwing-Duistermaat (\email{J.J.Houwing@@lumc.nl}),
-#' Geurt Jongbloed (\email{G.Jongbloed@@tudelft.nl}),
-#' Szymon Kielbasa (\email{S.M.Kielbasa@@lumc.nl}),
-#' Hae-Won Uh (\email{H.Uh@@lumc.nl}).
+#' Said el Bouhaddani,
+#' Jeanine Houwing-Duistermaat,
+#' Geurt Jongbloed,
+#' Hae-Won Uh.
 #'
-#' Maintainer: Said el Bouhaddani (\email{s.el_bouhaddani@@lumc.nl}).
+#' Maintainer: Said el Bouhaddani (\email{s.el_bouhaddani@@outlook.com}).
 #'
 #' @docType package
 #' @name PO2PLS-package
@@ -230,6 +229,7 @@ Lemma <- function(X, SigmaZ, invZtilde, Gamma, sig2E, sig2F, p, q, r, rx, ry){
 
 #' @keywords internal
 #'
+#' @export
 E_step_slow <- function(X, Y, params){
   ## retrieve parameters
   W = params$W
@@ -932,7 +932,7 @@ cov.PO2PLS <- function(fit){
 #' @param type_var String. Type of covariance matrix sought
 #'
 #' @return A covariance matrix and standard errors
-#'
+#' @keywords internal
 #' @export
 variances.PO2PLS <- function(fit, data, type_var = c("complete","component","variable")){
   type_var = match.arg(type_var)
@@ -1035,7 +1035,7 @@ variances_inner.po2m <- function(fit, X, Y){
 #' @param ... Additional arguments for the PO2PLS fit. In particular, one may specify \code{steps=100, init_param=fit$par, verbose=FALSE}
 #'
 #' @return A vector with the standard errors for B per component
-#'
+#' @keywords internal
 #' @export
 bootstrap_inner.po2m <- function(fit, X, Y, rep.cores = 1, rep.K = 5, ...){
 
