@@ -32,7 +32,7 @@ PO2PLS_to_po2m <- function(fit, X, Y){
     R2Xj = with(fit$par, tr(SigT)/(tr(SigT)+tr(SigTo)+p*sig2E)),
     R2Yj = with(fit$par, tr(SigU)/(tr(SigU)+tr(SigUo)+q*sig2F)),
     R2Xhat = NA,
-    R2Yhat = with(fit$par, tr(SigT %*% B)/tr(SigU))
+    R2Yhat = with(fit$par, tr(SigT %*% B^2)/tr(SigU))
   )
   loglk <- list(all_vals = fit$log, last_val = tail(fit$log,1),
                 df = unname((p+1)*(comps[1]+comps[2])+(q+1)*(comps[1]+comps[3])+2*(comps[1]+1)))
