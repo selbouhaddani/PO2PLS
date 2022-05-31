@@ -647,11 +647,11 @@ M_step <- function(E_fit, params, X, Y, orth_type = c("SVD","QR")){
     params$sig2E = See
     params$sig2F = Sff
 
-    params$W = orth(t(X/N) %*% mu_T - params$Wo%*%t(Stto),type = orth_type)#%*%MASS::ginv(Stt)
-    params$C = orth(t(Y/N) %*% mu_U - params$Co%*%t(Suuo),type = orth_type)#%*%MASS::ginv(Suu)
+    params$W = orth(t(t(mu_T) %*% X/N) - params$Wo%*%t(Stto),type = orth_type)#%*%MASS::ginv(Stt)
+    params$C = orth(t(t(mu_U) %*% Y/N) - params$Co%*%t(Suuo),type = orth_type)#%*%MASS::ginv(Suu)
 
-    params$Wo = suppressWarnings(orth_x*orth(t(X/N) %*% mu_To - params$W%*%Stto,type = orth_type))#%*%MASS::ginv(Stoto)
-    params$Co = suppressWarnings(orth_y*orth(t(Y/N) %*% mu_Uo - params$C%*%Suuo,type = orth_type))#%*%MASS::ginv(Suouo)
+    params$Wo = suppressWarnings(orth_x*orth(t(t(mu_To) %*% X/N) - params$W%*%Stto,type = orth_type))#%*%MASS::ginv(Stoto)
+    params$Co = suppressWarnings(orth_y*orth(t(t(mu_Uo) %*% Y/N) - params$C%*%Suuo,type = orth_type))#%*%MASS::ginv(Suouo)
     params
   })
 }

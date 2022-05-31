@@ -6,6 +6,11 @@
 
 using namespace Rcpp;
 
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
 // E_step_testC
 List E_step_testC(arma::mat dataXY, int p, int q, int r, int rx, int ry, int N, arma::mat SigmaZ, arma::mat GammaEF, arma::mat invZtilde, arma::mat Gamma, arma::mat GGef, arma::mat EZc, arma::mat Szz, arma::mat W, arma::mat C, arma::mat Wo, arma::mat Co, arma::mat SigT, arma::mat SigH, double sig2E, double sig2F);
 RcppExport SEXP _PO2PLS_E_step_testC(SEXP dataXYSEXP, SEXP pSEXP, SEXP qSEXP, SEXP rSEXP, SEXP rxSEXP, SEXP rySEXP, SEXP NSEXP, SEXP SigmaZSEXP, SEXP GammaEFSEXP, SEXP invZtildeSEXP, SEXP GammaSEXP, SEXP GGefSEXP, SEXP EZcSEXP, SEXP SzzSEXP, SEXP WSEXP, SEXP CSEXP, SEXP WoSEXP, SEXP CoSEXP, SEXP SigTSEXP, SEXP SigHSEXP, SEXP sig2ESEXP, SEXP sig2FSEXP) {
