@@ -1,8 +1,8 @@
 Package: PO2PLS
 Type: Package
 Title: Probabilistic Two-Way Orthogonal Partial Least Squares
-Version: 0.9.0
-Date: 2020-10-29
+Version: 1.0.0
+Date: 2022-06-14
 Encoding: UTF-8
 Author: Said el Bouhaddani, Hae-Won Uh, Geurt Jongbloed, Jeanine Houwing-Duistermaat
 Maintainer: Said el Bouhaddani <s.el_bouhaddani@outlook.com>
@@ -12,4 +12,7 @@ LazyData: TRUE
 LinkingTo: Rcpp, RcppArmadillo
 Imports:
     stats, utils, MASS, OmicsPLS, Rcpp, RcppArmadillo, dplyr, tibble, magrittr, parallel
-RoxygenNote: 7.1.0
+RoxygenNote: 7.1.2
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

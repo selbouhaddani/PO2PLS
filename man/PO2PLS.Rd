@@ -41,7 +41,9 @@ PO2PLS(
 
 \item{random_restart}{Not to be used}
 
-\item{homogen_joint}{Boolean. Should U=T be assumed? Best left to statistical expert.}
+\item{homogen_joint}{Boolean. Should U=T be assumed? For simulation purposes to mimic SIFA.}
+
+\item{null_B}{Boolean. Should B=0 be assumed? For simulation purposes}
 
 \item{verbose}{Boolean. Should output about time and convergence state be printed?}
 }

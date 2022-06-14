@@ -16,7 +16,7 @@
 #' @import OmicsPLS Rcpp RcppArmadillo magrittr dplyr tibble parallel
 #' @importFrom Rcpp evalCpp
 #' @importFrom utils tail
-#' @importFrom stats pchisq rnorm runif
+#' @importFrom stats pchisq rnorm runif sd
 #' @importFrom MASS ginv
 #' @useDynLib PO2PLS, .registration=TRUE
 NULL
@@ -226,7 +226,13 @@ Lemma <- function(X, SigmaZ, invZtilde, Gamma, sig2E, sig2F, p, q, r, rx, ry){
   return(list(EZc = EZc, VarZc = VarZc))
 }
 
-
+#' Expectation step (slower version)
+#'
+#' Internal function only
+#'
+#' @param X Data matrix
+#' @param Y Data matrix
+#' @param params List with parameters
 #' @keywords internal
 #'
 #' @export
@@ -697,7 +703,8 @@ jitter_params <- function(params, amount = NULL){
 #' @param init_param Character. Should be one of "o2m", "random" or "unit". Specifies which kind of parameters should be generated.
 #' @param orth_type Character. One of "SVD" or "QR". Best left set to "SVD"
 #' @param random_restart Not to be used
-#' @param homogen_joint Boolean. Should U=T be assumed? Best left to statistical expert.
+#' @param homogen_joint Boolean. Should U=T be assumed? For simulation purposes to mimic SIFA.
+#' @param null_B Boolean. Should B=0 be assumed? For simulation purposes
 #' @param verbose Boolean. Should output about time and convergence state be printed?
 #'
 #' @return A list with
@@ -792,9 +799,14 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param=c("o2m",
 
       if(i == 1) logl[1] = E_next$logl
       logl[i+1] = E_next$logl
-      if(i > 1 && abs(logl[i+1]-logl[i]) < tol) break
+      if(i > 1 && abs(logl[i+1]-logl[i]) < tol) {
+        if(verbose) {
+          print(data.frame(row.names = "", steps = i, time = unname(proc.time()-tic)[3], diff = logl[i+1]-logl[i], logl = logl[i+1]))
+        }
+        break
+      }
       if(verbose & i %in% c(1e1, 1e2, 1e3, 5e3, 1e4, 4e4)) {
-        print(data.frame(row.names = 1, steps = i, time = unname(proc.time()-tic)[3], diff = logl[i+1]-logl[i], logl = logl[i+1]))
+        print(data.frame(row.names = "", steps = i, time = unname(proc.time()-tic)[3], diff = logl[i+1]-logl[i], logl = logl[i+1]))
       }
       if(random_restart_original & logl[i+1] > max(logl[1:i])) params_max <- params_next
       params = params_next
@@ -831,6 +843,7 @@ PO2PLS <- function(X, Y, r, rx, ry, steps = 1e5, tol = 1e-6, init_param=c("o2m",
                         converg = (logl[i+1]-logl[i]) < tol)
   class(outputt) <- "PO2PLS"
   outputt <- PO2PLS_to_po2m(outputt,X,Y)
+  if(verbose) print(paste('ended',date()))
   return(outputt)
 }
 
@@ -927,87 +940,85 @@ cov.PO2PLS <- function(fit){
 
 #' Calculate the variance covariance matrix of the estimated PO2PLS parameters
 #'
-#' @param fit A PO2PLS fit of class po2m
-#' @param data The datasets used in the fit
+#' @inheritParams variances_inner.po2m
 #' @param type_var String. Type of covariance matrix sought
 #'
 #' @return A covariance matrix and standard errors
 #' @keywords internal
-#' @export
-variances.PO2PLS <- function(fit, data, type_var = c("complete","component","variable")){
-  type_var = match.arg(type_var)
-  N = nrow(data)
-  p = nrow(fit$par$W)
-  q = nrow(fit$par$C)
-  r = ncol(fit$par$W)
-  rx= ncol(fit$par$Wo)
-  ry= ncol(fit$par$Co)
-  SigU = with(fit$par, SigT%*%B^2 + SigH)
-
-  dataEF <- cbind(data[,1:p]/fit$par$sig2E, data[,-(1:p)]/fit$par$sig2F)
-
-  Gamma = with(fit$par, {
-    rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry)),
-          cbind(matrix(0,q,r), C, matrix(0,q,rx), Co))
-    })
-  SigmaZ = with(fit$par,{
-    blockm(
-      blockm(
-        blockm(SigT, SigT%*%B, SigU),
-        matrix(0,2*r,rx), SigTo),
-      matrix(0,2*r+rx,ry), SigUo)
-  })
-  GammaEF <- Gamma
-  GammaEF[1:p,c(1:r,2*r+1:rx)] <- 1/fit$par$sig2E* GammaEF[1:p,c(1:r,2*r+1:rx)]
-  GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)] <- 1/fit$par$sig2F* GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)]
-  GGef <- t(Gamma) %*% GammaEF
-  invZtilde <- MASS::ginv(MASS::ginv(SigmaZ) + GGef)
-  VarZc <- SigmaZ - (t(Gamma %*% SigmaZ) %*% GammaEF) %*% SigmaZ +
-    (t(Gamma %*% SigmaZ) %*% GammaEF) %*% invZtilde %*% GGef %*% SigmaZ
-
-  EZc <- data %*% (GammaEF %*% SigmaZ)
-  EZc <- EZc - data %*% ((GammaEF %*% invZtilde)  %*% (GGef %*% SigmaZ))
-  Szz = VarZc + crossprod(EZc)/N
-  E3Zc <- EZc%*%crossprod(EZc)/N + 3*EZc%*%VarZc
-  E4Zc <- (crossprod(EZc)/N)^2 + 6*(crossprod(EZc)/N)%*%VarZc + 3*crossprod(VarZc)
-
-  if(type_var == "component"){
-    Iobs = lapply(1:ncol(Gamma), function(comp_k) {
-      Bobs <- diag(c(rep(1/fit$par$sig2E,p), rep(1/fit$par$sig2F,q)))*Szz[comp_k,comp_k]
-      SSt1 <- Szz[comp_k,comp_k]*crossprod(dataEF)/N
-      SSt2 <- crossprod(dataEF, E3Zc[,comp_k]%*%t(GammaEF[,comp_k]))/N
-      SSt3 <- GammaEF[,comp_k] %*% as.matrix(E4Zc[comp_k,comp_k]) %*% t(GammaEF[,comp_k])
-      list(Bobs = Bobs, SSt1 = SSt1, SSt2 = SSt2, SSt3 = SSt3, SEs = -diag(MASS::ginv((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
-    })
-    return(Iobs)
-  }
-
-  if(type_var == "variable"){
-    Sigmaef_inv = (1/rep(c(fit$par$sig2E,fit$par$sig2F),c(p,q)))
-    Iobs = list()
-    Iobs$Bobs = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) Szz*Sigmaef_inv[j])))
-    Iobs$SSt1 = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) data[i,j]^2*Sigmaef_inv[j]^2*Szz)))
-    Iobs$SSt2 = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) data[i,j]*Sigmaef_inv[j]^2*E3Zc[i,]%*%t(Gamma[j,]))))
-    Iobs$SSt3 = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) Sigmaef_inv[j]^2*E4Zc%*%Gamma[j,]%*%t(Gamma[j,]))))
-    #Iobs$SEs = with(Iobs, -diag(MASS::ginv((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
-    return(Iobs)
-  }
-
-  if(type_var == "complete"){
-    Sigmaef_inv = diag(1/rep(c(fit$par$sig2E,fit$par$sig2F),c(p,q)))
-    Iobs = list()
-    Iobs$Bobs = Reduce(`+`, lapply(1:N, function(i) Szz %x% Sigmaef_inv))
-    Iobs$muS  = Reduce(`+`, lapply(1:N, function(i) EZc[i,] %x% (Sigmaef_inv %*% (data[i,])) ))
-    Iobs$VarS = Reduce(`+`, lapply(1:N, function(i) VarZc %x% (Sigmaef_inv^2 %*% tcrossprod(data[i,])) -
-                                     (E4Zc %x% Sigmaef_inv^2) %*% tcrossprod(c(Gamma)) ))
-    Iobs$SSt  = Reduce(`+`, lapply(1:N, function(i) Iobs$VarS - tcrossprod(Iobs$muS) ))
-    Iobs$Iobs = with(Iobs, (Bobs - SSt/N))
-    Iobs$Iobs = with(Iobs, Iobs[-which(c(Gamma)==0),-which(c(Gamma)==0)])
-    Iobs$SEs = (diag(solve(Iobs$Iobs)))
-    return(Iobs)
-  }
-
-}
+#'
+# variances.PO2PLS <- function(fit, data, type_var = c("complete","component","variable")){
+#   type_var = match.arg(type_var)
+#   N = nrow(data)
+#   p = nrow(fit$par$W)
+#   q = nrow(fit$par$C)
+#   r = ncol(fit$par$W)
+#   rx= ncol(fit$par$Wo)
+#   ry= ncol(fit$par$Co)
+#   SigU = with(fit$par, SigT%*%B^2 + SigH)
+#
+#   dataEF <- cbind(data[,1:p]/fit$par$sig2E, data[,-(1:p)]/fit$par$sig2F)
+#
+#   Gamma = with(fit$par, {
+#     rbind(cbind(W, matrix(0,p,r), Wo, matrix(0,p,ry)),
+#           cbind(matrix(0,q,r), C, matrix(0,q,rx), Co))
+#     })
+#   SigmaZ = with(fit$par,{
+#     blockm(
+#       blockm(
+#         blockm(SigT, SigT%*%B, SigU),
+#         matrix(0,2*r,rx), SigTo),
+#       matrix(0,2*r+rx,ry), SigUo)
+#   })
+#   GammaEF <- Gamma
+#   GammaEF[1:p,c(1:r,2*r+1:rx)] <- 1/fit$par$sig2E* GammaEF[1:p,c(1:r,2*r+1:rx)]
+#   GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)] <- 1/fit$par$sig2F* GammaEF[-(1:p),c(r+1:r,2*r+rx+1:ry)]
+#   GGef <- t(Gamma) %*% GammaEF
+#   invZtilde <- MASS::ginv(MASS::ginv(SigmaZ) + GGef)
+#   VarZc <- SigmaZ - (t(Gamma %*% SigmaZ) %*% GammaEF) %*% SigmaZ +
+#     (t(Gamma %*% SigmaZ) %*% GammaEF) %*% invZtilde %*% GGef %*% SigmaZ
+#
+#   EZc <- data %*% (GammaEF %*% SigmaZ)
+#   EZc <- EZc - data %*% ((GammaEF %*% invZtilde)  %*% (GGef %*% SigmaZ))
+#   Szz = VarZc + crossprod(EZc)/N
+#   E3Zc <- EZc%*%crossprod(EZc)/N + 3*EZc%*%VarZc
+#   E4Zc <- (crossprod(EZc)/N)^2 + 6*(crossprod(EZc)/N)%*%VarZc + 3*crossprod(VarZc)
+#
+#   if(type_var == "component"){
+#     Iobs = lapply(1:ncol(Gamma), function(comp_k) {
+#       Bobs <- diag(c(rep(1/fit$par$sig2E,p), rep(1/fit$par$sig2F,q)))*Szz[comp_k,comp_k]
+#       SSt1 <- Szz[comp_k,comp_k]*crossprod(dataEF)/N
+#       SSt2 <- crossprod(dataEF, E3Zc[,comp_k]%*%t(GammaEF[,comp_k]))/N
+#       SSt3 <- GammaEF[,comp_k] %*% as.matrix(E4Zc[comp_k,comp_k]) %*% t(GammaEF[,comp_k])
+#       list(Bobs = Bobs, SSt1 = SSt1, SSt2 = SSt2, SSt3 = SSt3, SEs = -diag(MASS::ginv((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
+#     })
+#     return(Iobs)
+#   }
+#
+#   if(type_var == "variable"){
+#     Sigmaef_inv = (1/rep(c(fit$par$sig2E,fit$par$sig2F),c(p,q)))
+#     Iobs = list()
+#     Iobs$Bobs = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) Szz*Sigmaef_inv[j])))
+#     Iobs$SSt1 = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) data[i,j]^2*Sigmaef_inv[j]^2*Szz)))
+#     Iobs$SSt2 = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) data[i,j]*Sigmaef_inv[j]^2*E3Zc[i,]%*%t(Gamma[j,]))))
+#     Iobs$SSt3 = lapply(1:ncol(data), function(j) Reduce(`+`, lapply(1:N, function(i) Sigmaef_inv[j]^2*E4Zc%*%Gamma[j,]%*%t(Gamma[j,]))))
+#     #Iobs$SEs = with(Iobs, -diag(MASS::ginv((Bobs - SSt1 + SSt2 + t(SSt2) - SSt3))))
+#     return(Iobs)
+#   }
+#
+#   if(type_var == "complete"){
+#     Sigmaef_inv = diag(1/rep(c(fit$par$sig2E,fit$par$sig2F),c(p,q)))
+#     Iobs = list()
+#     Iobs$Bobs = Reduce(`+`, lapply(1:N, function(i) Szz %x% Sigmaef_inv))
+#     Iobs$muS  = Reduce(`+`, lapply(1:N, function(i) EZc[i,] %x% (Sigmaef_inv %*% (data[i,])) ))
+#     Iobs$VarS = Reduce(`+`, lapply(1:N, function(i) VarZc %x% (Sigmaef_inv^2 %*% tcrossprod(data[i,])) -
+#                                      (E4Zc %x% Sigmaef_inv^2) %*% tcrossprod(c(Gamma)) ))
+#     Iobs$SSt  = Reduce(`+`, lapply(1:N, function(i) Iobs$VarS - tcrossprod(Iobs$muS) ))
+#     Iobs$Iobs = with(Iobs, (Bobs - SSt/N))
+#     Iobs$Iobs = with(Iobs, Iobs[-which(c(Gamma)==0),-which(c(Gamma)==0)])
+#     Iobs$SEs = (diag(solve(Iobs$Iobs)))
+#     return(Iobs)
+#   }
+# }
 
 #' Calculate standard errors for the inner relation coefficient B
 #'
@@ -1066,5 +1077,5 @@ bootstrap_inner.po2m <- function(fit, X, Y, rep.cores = 1, rep.K = 5, ...){
                           })
   }
 
-  return(boot.par %>% do.call(what=cbind, args = .) %>% apply(1,sd))
+  return(apply(do.call(what=cbind, args = boot.par), 1,sd))
 }

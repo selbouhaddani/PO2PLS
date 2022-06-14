@@ -25,3 +25,4 @@ A vector with the standard errors for B per component
 \description{
 Calculate standard errors for the inner relation coefficient B
 }
+\keyword{internal}

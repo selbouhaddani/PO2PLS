@@ -8,12 +8,11 @@
 This package implements the probabilistic O2PLS method.
 }
 \author{
-Said el Bouhaddani (\email{s.el_bouhaddani@lumc.nl}),
-Jeanine Houwing-Duistermaat (\email{J.J.Houwing@lumc.nl}),
-Geurt Jongbloed (\email{G.Jongbloed@tudelft.nl}),
-Szymon Kielbasa (\email{S.M.Kielbasa@lumc.nl}),
-Hae-Won Uh (\email{H.Uh@lumc.nl}).
+Said el Bouhaddani,
+Jeanine Houwing-Duistermaat,
+Geurt Jongbloed,
+Hae-Won Uh.
 
-Maintainer: Said el Bouhaddani (\email{s.el_bouhaddani@lumc.nl}).
+Maintainer: Said el Bouhaddani (\email{s.el_bouhaddani@outlook.com}).
 }
 \keyword{Probabilistic-O2PLS}
