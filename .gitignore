@@ -38,3 +38,4 @@ src/*.so
 src/*.dll
 
 .DS_Store
+*.comment
