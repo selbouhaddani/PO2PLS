@@ -29,11 +29,12 @@ gen_par3 <- function(p1, p2, p3, r, rx1, rx2, rx3, alpha = 0.1){
        SigTo3 = prm3$SigTo,
        sig2E1 = prm$sig2E,
        sig2E2 = prm$sig2F,
-       sig2E3 = prm3$sig2E
+       sig2E3 = prm3$sig2E,
+       beta_T = sort(runif(r, -1, 1))
        )
 }
 
-gen_dat3 <- function(N, params){
+gen_dat3 <- function(N, params, alpha_out = 0.1){
   W1 <- params$W1
   W2 <- params$W2
   W3 <- params$W3
@@ -54,6 +55,8 @@ gen_dat3 <- function(N, params){
   SigTo2 = params$SigTo2 + 1e-06 * SigT[1] * (params$SigTo2[1] == 0)
   SigTo3 = params$SigTo3 + 1e-06 * SigT[1] * (params$SigTo3[1] == 0)
   
+  N <- 3/2 * N
+  
   Tt <- matrix(rnorm(N * r), N, r) %*% chol(SigT)
   To1 <- matrix(rnorm(N * rx1), N, rx1) %*% chol(SigTo1)
   To2 <- matrix(rnorm(N * rx2), N, rx2) %*% chol(SigTo2)
@@ -67,9 +70,27 @@ gen_dat3 <- function(N, params){
   X2 <- Tt %*% t(W2) + To2 %*% t(Wo2) + E2
   X3 <- Tt %*% t(W3) + To3 %*% t(Wo3) + E3
   
-  return(list(X1 = X1, X2 = X2, X3 = X3))
+  outc <- Tt %*% params$beta_T
+  outc <- outc + rnorm(N, 0, sd = sqrt( alpha_out/(1-alpha_out)*var(outc) ))
+  
+  indx1 <- order(outc)[1:(N/3)]
+  indx2 <- order(-outc)[1:(N/3)]
+  indxN <- c(indx1, indx2)
+  
+  outc_bin <- 1*(outc > 0)
+  outc_bin <- outc_bin[indxN]
+  
+  #print((indxN))
+  #print(str(X1))
+  
+  X1 <- X1[indxN,]
+  X2 <- X2[indxN,]
+  X3 <- X3[indxN,]
+  
+  return(list(X1 = X1, X2 = X2, X3 = X3, outc = outc_bin))
   
 }
+
 
 # prm <- gen_par3(10, 11, 12, 2, 1, 1, 1, alpha = 0.1)
 # dat <- gen_dat3(100, prm)
