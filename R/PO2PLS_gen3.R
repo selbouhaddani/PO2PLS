@@ -34,7 +34,7 @@ gen_par3 <- function(p1, p2, p3, r, rx1, rx2, rx3, alpha = 0.1){
        )
 }
 
-gen_dat3 <- function(N, params, alpha_out = 0.1){
+gen_dat3 <- function(N, params, alpha_out = 0.1, sparse = FALSE){
   W1 <- params$W1
   W2 <- params$W2
   W3 <- params$W3
@@ -49,6 +49,13 @@ gen_dat3 <- function(N, params, alpha_out = 0.1){
   p1 <- nrow(W1)
   p2 <- nrow(W2)
   p3 <- nrow(W3)
+  
+  if(sparse){
+    W1[-(1:(p1/4)),] <- 0
+    W2[-(1:(p2/4)),] <- 0
+    W3[-(1:(p3/4)),] <- 0
+  }
+  # print(W1)
   
   SigT = params$SigT
   SigTo1 = params$SigTo1 + 1e-06 * SigT[1] * (params$SigTo1[1] == 0)
@@ -93,7 +100,7 @@ gen_dat3 <- function(N, params, alpha_out = 0.1){
 
 
 # prm <- gen_par3(10, 11, 12, 2, 1, 1, 1, alpha = 0.1)
-# dat <- gen_dat3(100, prm)
+# dat <- gen_dat3(100, prm, sparse = TRUE)
 
 
 
